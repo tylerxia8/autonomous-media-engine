@@ -1,0 +1,13 @@
+# Monetization feasibility
+
+Public research is evidence of a route, not account access or an active funded offer. Current disposition for every live route is blocked pending the evidence below.
+
+| Route | Public evidence and limitation | Clearance to obtain |
+|---|---|---|
+| Authorized direct paid pilot | Proposed route. No identified payer or signed agreement. A fixed fee can avoid platform audience thresholds if agreed. | Signed scope, active payer, source grant, fee, approval deadline, destination authorization, settlement method and actual cleared payment. |
+| Content Rewards marketplace | Public creator terms and guidance describe different campaign payout and review flows. Provider and campaign terms govern. [Creator terms](https://b4e0vdqv6zgqeqj4pfgm.apps.whop.com/terms) · [Creator guide](https://b4e0vdqv6zgqeqj4pfgm.apps.whop.com/creators) | Verify exact marketplace, active campaign, region and account, rights, funding, CPM or fee, qualifying views, threshold, fees, hold, cutoff, review/appeal, withdrawal and reversal. No confirmed creator discovery, submission, metrics or payout API grant. Manual workflow only if explicitly permitted. |
+| YouTube ad revenue | YPP requires eligibility and acceptance. AdSense payment thresholds vary by currency. Upload access and estimated analytics do not establish payout. [YPP](https://support.google.com/youtube/answer/72851) · [Thresholds](https://support.google.com/adsense/answer/1709871) | Verify owner channel, location, review, monetization/reuse rules, actual upload behavior, reporting scopes and payout profile. Do not plan on new-channel ads for week-one cash. |
+
+Capture a dated evidence bundle per opportunity including account identity, signed grant, eligible source and platform, duplication rules, current balance/funding, views definition, disclosure, review sequence, payout cap, clearing method, automation action matrix and evidence expiry. Choose a qualifying route with shortest conservative cash clearing time and positive expected margin. If none qualifies, ship dry-run only. For an approved direct pilot, submit a deliverable as contracted, record acceptance and invoice, and reconcile the statement. For an approved marketplace pilot, follow required pre- or post-publication review order.
+
+Unresolved shared dependencies include owner-provided authorized source and existing accounts, local compute benchmark, permitted official OAuth project with effective quotas and visibility, analytics metric eligibility and data-policy approval, market-specific payment and fees, and all unapproved dataset/weight scopes in the [registry](RESEARCH_REGISTRY.md). Other social destinations remain disabled until independently verified.
