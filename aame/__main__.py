@@ -8,6 +8,7 @@ from subprocess import SubprocessError
 
 from aame.demo import run_demo
 from aame.qualification import content_rewards_template, qualify, utc_time
+from aame.selection import rank_campaigns
 from aame.transcription import transcribe
 from aame.workflow import Workflow
 
@@ -26,6 +27,9 @@ def command_parser():
     demo.add_argument("directory", type=Path)
     template = commands.add_parser("content-rewards-template", help="print a blocked evidence packet")
     template.add_argument("campaign_id")
+    rank = commands.add_parser("rank-campaigns", help="rank reviewed campaign evidence offline")
+    rank.add_argument("candidates", type=Path)
+    rank.add_argument("--budget-cents", type=int, default=0)
     speech = commands.add_parser("transcribe", help="transcribe one authorized file locally")
     speech.add_argument("directory", type=Path)
     speech.add_argument("--launch-at", type=timestamp, required=True)
@@ -66,6 +70,9 @@ def run(args, now):
         return run_demo(args.directory)
     if args.command == "content-rewards-template":
         return content_rewards_template(args.campaign_id)
+    if args.command == "rank-campaigns":
+        candidates = json.loads(args.candidates.read_text(encoding="utf-8"))
+        return rank_campaigns(candidates, now=now, budget_cents=args.budget_cents)
     if args.command == "transcribe":
         workflow = Workflow(args.directory, launch_at=args.launch_at)
         workflow.check_running()

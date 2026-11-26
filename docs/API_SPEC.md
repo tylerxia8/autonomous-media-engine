@@ -37,3 +37,9 @@ An optional eligibility fact field `clip_duration_ms: [minimum, maximum]` constr
 The command checks attestations and always emits `live_enabled: false`. Production requires a trusted evidence store, independent review, fresh dispatch gates and owner authorization.
 
 Generate a blocked starter for the selected Content Rewards route with `python -B -m aame content-rewards-template CAMPAIGN_ID`. Fill the known fields and scope all facts and permissions to the same identifiers, including the marketplace. Use evidence references that only authorized operators can resolve. The template contains no grants. Content Rewards packets enforce manual submission even if an automated declaration is present.
+
+## Rank reviewed Content Rewards offers
+
+Run `python -B -m aame rank-campaigns /path/to/candidates.json`. The input is a list of objects with a `packet` from the qualification contract and an `economics` attestation. The attestation uses the same verification, dates and scope fields as a fact. It binds `payment_terms` to the exact qualified fixed-payment object and supplies `max_cost_cents` and `minimum_collection_probability_bps` from reviewed downside assumptions. Collection probability must include the view threshold, review and clearing risks. Unknown economics block selection.
+
+The command ranks positive estimated net cash per conservative clearing day and reports required manual actions. It defaults to a zero-cost planning filter. `--budget-cents` is an advisory input and confers no spending authority. The command never reserves funds, contacts providers or enables execution.
