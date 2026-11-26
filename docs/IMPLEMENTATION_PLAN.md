@@ -4,16 +4,16 @@ Platform evidence checked November 26, 2026. Build YouTube Shorts first. The Nov
 
 ## First cash
 
-Qualify a funded flat-fee YouTube Shorts campaign with no or low minimum views and the shortest conservative time to cleared cash. Compare it with a signed fixed-fee direct pilot using the same criteria. Prefer per-post approval over multi-deliverable retainers or variable CPM/pool payouts. Verify the campaign accepts YouTube Shorts and the specific channel. Confirm creative rights, account/KYC, disclosure, review order, submission SLA, remaining funding, fee, minimum eligible views and measurement window, validation hold, withdrawal threshold and bank arrival. Rank eligible offers by downside net cash and time to clearing. An unevidenced input blocks the live route.
+Qualify a signed fixed-fee direct pilot for one business with an ongoing owned video feed. Require zero view threshold and objective delivery acceptance without per-post human review. Obtain explicit editing, commercial rights, automated publishing and automated delivery grants. Prefer a buyer-authorized channel so the offer depends on useful deliverables and avoids an audience-size gate. Keep discovery and contract approval as one-time operator actions. Rank agreements by downside net cash and time to cleared cash. AAME has no verified buyer or signed agreement.
 
-First-cash sequence: qualify → acquire authorized source → produce and independently approve one Short → complete required draft review → publish through an authorized adapter → confirm processing and required visibility → operator submits through permitted UI → reconcile approval, wallet settlement and cleared receipt separately. No payer, channel, source grant or active campaign has been verified for AAME. Unattended Content Rewards submission is blocked pending documented creator API and explicit permission for the exact experience and action. Current scope is offline only.
+First-cash sequence: confirm buyer and signed scope → verify funds and source grant → simulate one authorized clip → pass technical and contextual checks → publish through a cleared adapter or deliver to the agreed endpoint → receive delivery acknowledgement → match cleared cash. A production dispatcher and settlement adapter must pass acceptance before unattended live work. [Direct pilot feasibility](CAMPAIGN_FEASIBILITY.md)
 
 | Day | Work and exit |
 |---|---|
 | 1 | AAME-002 records a single candidate's signed rights, offer evidence, cleared-cash timeline and per-action permissions. If no offer clears, record blocker and run fixture. |
 | 2 | Implement atomic budget reservations, durable state and fail-closed rights, owner and shutdown gates (AAME-003–007). Start at $0 approved spend. |
 | 3–4 | Run authorized fixture through local transcription, deterministic moment selection, vertical render, captions and independent QA (AAME-008–011). |
-| 5 | Extend the mock-tested YouTube adapter into a separately reviewed integration. Add authorized OAuth, durable idempotency, resumable upload and processing/visibility reconciliation. Prepare the operator handoff and enforce campaign deadlines (AAME-012–013). |
+| 5 | Extend the mock-tested YouTube adapter into a separately reviewed integration. Add authorized OAuth, durable idempotency, resumable upload and processing/visibility reconciliation. Implement the approved direct delivery receipt and enforce contracted deadlines (AAME-012–013). |
 | 6 | Replay approval, withdrawal, duplicate receipts, reversals, ambiguous uploads and shutdown offline. Produce a local cash report (AAME-014–015, 026–027). |
 | 7 | Pipeline readiness target. A future pilot requires explicit live authorization and all current evidence. Track cash through clearing, which can occur after day seven. |
 
