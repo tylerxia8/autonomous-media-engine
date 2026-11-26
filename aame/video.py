@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from fractions import Fraction
 import hashlib
+import heapq
 import hmac
 import json
 import os
@@ -23,6 +24,7 @@ MAX_CLIP_MS = 35_000
 WIDTH = 720
 HEIGHT = 1280
 RECIPE_VERSION = "vertical-captioned-v1"
+SCORING_VERSION = "transcript-window-v2"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _MOV_DEMUXER = ["-f", "mov", "-enable_drefs", "0", "-max_streams", "16"]
 
@@ -46,6 +48,9 @@ class RenderReceipt:
     start_ms: int
     end_ms: int
     recipe_version: str = RECIPE_VERSION
+    scoring_version: str = SCORING_VERSION
+    selection_score: int = 0
+    selection_reasons: tuple[str, ...] = ()
 
 
 def _snapshot(root, relative_path, destination, expected_hash, limit):
@@ -174,33 +179,59 @@ def _load_cues(path, duration):
     return cues
 
 
-def _select(cues):
-    """Rank contiguous cue windows with a deterministic speech and length heuristic."""
-    best = None
-    best_window = None
-    # Limit the maximum number of cues per window even on an extreme transcript.
-    for first, beginning in enumerate(cues):
-        words = 0
-        for last in range(first, min(first + 80, len(cues))):
-            cue = cues[last]
-            if last > first and cue.start_ms - cues[last - 1].end_ms > 2_500:
-                break
-            duration = cue.end_ms - beginning.start_ms
-            if duration > MAX_CLIP_MS:
-                break
-            words += len(cue.text.split())
-            if duration < 1_000:
-                continue
-            # Favor a 12–25s window with enough speech, then prefer the earliest tie.
-            band_distance = max(12_000 - duration, duration - 25_000, 0)
-            score = (min(words, 55) * 100 - band_distance // 10, -beginning.start_ms, -duration)
-            if best is None or score > best:
-                best = score
-                best_window = (first, last)
-    if best_window is None:
+@dataclass(frozen=True)
+class ClipCandidate:
+    first_cue: int
+    last_cue: int
+    start_ms: int
+    end_ms: int
+    score: int
+    reasons: tuple[str, ...]
+    version: str = SCORING_VERSION
+
+
+def rank_candidates(cues, *, limit=1):
+    """Rank bounded contiguous cue windows with reproducible explanations."""
+    if type(limit) is not int or not 1 <= limit <= 20:
+        raise VideoError("candidate limit must be between 1 and 20")
+
+    def windows():
+        for first, beginning in enumerate(cues):
+            words = speech = 0
+            for last in range(first, min(first + 80, len(cues))):
+                cue = cues[last]
+                if last > first and cue.start_ms - cues[last - 1].end_ms > 2_500:
+                    break
+                duration = cue.end_ms - beginning.start_ms
+                if duration > MAX_CLIP_MS:
+                    break
+                words += len(cue.text.split())
+                speech += cue.end_ms - cue.start_ms
+                if duration < 1_000:
+                    continue
+                band_distance = max(12_000 - duration, duration - 25_000, 0)
+                dead_air = duration - speech
+                reasons = ["caption_speech"]
+                if band_distance:
+                    reasons.append("outside_preferred_length")
+                else:
+                    reasons.append("preferred_length")
+                if dead_air >= 500:
+                    reasons.append("silence_penalty")
+                score = min(words, 55) * 100 - band_distance // 10 - dead_air // 20
+                yield ClipCandidate(
+                    first, last, beginning.start_ms, cue.end_ms, score, tuple(reasons),
+                )
+
+    candidates = heapq.nlargest(
+        limit, windows(),
+        key=lambda candidate: (
+            candidate.score, -candidate.start_ms, -(candidate.end_ms - candidate.start_ms),
+        ),
+    )
+    if not candidates:
         raise VideoError("no usable clip candidate reaches one second")
-    first, last = best_window
-    return cues[first:last + 1]
+    return candidates
 
 
 def _srt_time(milliseconds):
@@ -302,12 +333,15 @@ def produce(
             _snapshot(source_root, asset_relative_path, source, expected_source_sha256, MAX_SOURCE_BYTES)
             _snapshot(source_root, transcript_relative_path, transcript, expected_transcript_sha256,
                       MAX_TRANSCRIPT_BYTES)
-            cues = _select(_load_cues(transcript, _source_duration(source)))
+            all_cues = _load_cues(transcript, _source_duration(source))
+            winner = rank_candidates(all_cues)[0]
+            cues = all_cues[winner.first_cue:winner.last_cue + 1]
             _render(directory, cues)
             clip = directory / "clip.mp4"
             receipt = RenderReceipt(
                 expected_source_sha256, expected_transcript_sha256, _sha256(clip),
-                cues[0].start_ms, cues[-1].end_ms,
+                winner.start_ms, winner.end_ms, selection_score=winner.score,
+                selection_reasons=winner.reasons,
             )
             if not verify_render(clip, receipt):
                 raise VideoError("render did not pass local technical checks")

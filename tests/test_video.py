@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-from aame.video import Cue, VideoError, _select, produce, verify_render
+from aame.video import Cue, VideoError, produce, rank_candidates, verify_render
 
 
 def digest(path):
@@ -21,7 +21,11 @@ class MomentSelectionTest(unittest.TestCase):
             Cue(8_000, 10_000, "clear useful first"),
             Cue(10_500, 12_500, "second thought"),
         ]
-        self.assertEqual(_select(cues), cues[1:])
+        ranked = rank_candidates(cues, limit=2)
+        self.assertEqual((ranked[0].first_cue, ranked[0].last_cue), (1, 2))
+        self.assertIn("silence_penalty", ranked[0].reasons)
+        self.assertGreaterEqual(ranked[0].score, ranked[1].score)
+        self.assertEqual(ranked, rank_candidates(cues, limit=2))
 
 
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg is required")
