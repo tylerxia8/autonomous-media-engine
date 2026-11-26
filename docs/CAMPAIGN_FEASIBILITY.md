@@ -13,3 +13,14 @@ Official public documentation reviewed November 26, 2026. Production access and 
 | Direct fixed-fee pilot | Candidate commercial route with terms negotiated directly. | Blocked until signed fee, eligible YouTube channel/source, acceptance timeline, payout method and rights exist. Prefer a route with zero view threshold and verified rapid collection. |
 
 **End-to-end status.** Blocked. No signed direct pilot or account-verified funded YouTube-eligible offer, source grant, cleared OAuth identity or payout eligibility is evidenced. No live action is authorized by this update. Suggested evidence packet includes exact program/experience, campaign and brief version, creator/channel, rights, review order, disclosure, eligible metric/threshold, timestamps and expiry, funding, fees, approvals and cash receipt references. Unknown provider capabilities default to disabled.
+
+## Public leads checked November 26, 2026
+
+These listings are discovery evidence. Keep each lead blocked until an authorized reviewer confirms the current full brief and exact account, asset and payout eligibility.
+
+| Candidate | Public evidence | Account-level questions |
+|---|---|---|
+| Remvi Home Renovation UGC | Listed as accepting clips with $75 per approved YouTube post and $1,000 remaining when checked. Explicitly seeks US-based creators for Shorts. [Campaign](https://contentrewards.com/c/campaigns/3bfa1033-1ba7-4f34-a4f8-470634db8630) | Full content requirements, creator rules and seven assets are gated. Verify any view minimum, AI editing permission, required disclosures, asset rights and the complete clearing timeline. |
+| Superstore Your Shop in One Link | Listed as accepting clips with $10 per approved YouTube post and $1,000 remaining when checked. [Campaign](https://contentrewards.com/c/campaigns/5ad699cd-7aed-44f7-9b57-489fdd6e2628) | Confirm Shorts eligibility, draft review, minimum qualifying views, rights to the creator kit and any screen recordings, applicable fee and payout timing. Lower fee per post limits the spend worth risking. |
+
+No campaign was joined. No public listing establishes an AAME account grant, verified clearing time, or unattended creator submission permission.

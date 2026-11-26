@@ -77,6 +77,8 @@ class FinanceLedger:
                     evidence TEXT NOT NULL,
                     reverses TEXT REFERENCES financial_events(key)
                 );
+                CREATE UNIQUE INDEX IF NOT EXISTS unique_settlement_evidence
+                ON financial_events(kind, evidence) WHERE kind IN ('cash', 'reversal');
             """)
         with self._write() as connection:
             connection.execute(
@@ -152,12 +154,14 @@ class FinanceLedger:
 
     @staticmethod
     def _month_exposure(connection, month):
-        # Carry all outstanding reservations into the current period. Incurred
-        # expenses are allocated to the period in which work was reserved.
+        # Charge open or unpaid exposure and allocations made, incurred, or
+        # paid this month. A row contributes at most once in any given month.
         return connection.execute("""
             SELECT COALESCE(SUM(COALESCE(expense_cents, reserved_cents)), 0)
-            FROM reservations WHERE substr(reserved_at, 1, 7) = ? OR expense_cents IS NULL
-        """, (month,)).fetchone()[0]
+            FROM reservations WHERE substr(reserved_at, 1, 7) = ?
+                OR substr(resolved_at, 1, 7) = ? OR substr(paid_at, 1, 7) = ?
+                OR paid_at IS NULL
+        """, (month, month, month)).fetchone()[0]
 
     def _update_risk(self, connection):
         totals = self._totals(connection)
@@ -314,6 +318,11 @@ class FinanceLedger:
                 if tuple(previous) != (kind, cents, evidence, reverses):
                     raise FinanceError("event key already used with a different payload")
                 return
+            if kind in ("cash", "reversal") and connection.execute(
+                "SELECT 1 FROM financial_events WHERE kind = ? AND evidence = ?",
+                (kind, evidence),
+            ).fetchone():
+                raise FinanceError("settlement evidence already recorded under a different key")
             before = self._totals(connection)
             if kind == "reversal":
                 self._check_reversal(connection, reverses, cents, timestamp)
@@ -340,6 +349,42 @@ class FinanceLedger:
         if before["verified_cash_break_even"] and not after["verified_cash_break_even"]:
             if self._policy(connection)["monthly_cents"] == MONTHLY_CEILING:
                 connection.execute("UPDATE budget SET frozen = 1 WHERE singleton = 1")
+
+    def trailing_week(self, *, now):
+        """Return the seven-day window of incurred and cleared activity."""
+        end = self._time(now)
+        start = _utc(now - timedelta(days=7))
+        with closing(self._connect()) as connection, connection:
+            connection.execute("BEGIN")
+            events = {
+                row["kind"]: row["cents"]
+                for row in connection.execute("""
+                    SELECT kind, SUM(cents) AS cents FROM financial_events
+                    WHERE ? < recorded_at AND recorded_at <= ? GROUP BY kind
+                """, (start, end))
+            }
+            expense, paid = connection.execute("""
+                SELECT
+                    COALESCE(SUM(CASE WHEN ? < resolved_at AND resolved_at <= ?
+                        THEN expense_cents END), 0),
+                    COALESCE(SUM(CASE WHEN ? < paid_at AND paid_at <= ?
+                        THEN expense_cents END), 0)
+                FROM reservations
+            """, (start, end, start, end)).fetchone()
+        cash = events.get("cash", 0) - events.get("reversal", 0)
+        net = cash - paid
+        return {
+            "start_exclusive": start,
+            "end_inclusive": end,
+            "estimated_cents": events.get("estimate", 0),
+            "approved_cents": events.get("approval", 0),
+            "received_cash_cents": cash,
+            "expenses_cents": expense,
+            "net_cash_cents": net,
+            "net_cash_per_day_cents_floor": net // 7,
+            "daily_target_cents": 1_000,
+            "meets_daily_cash_target": net >= 7_000,
+        }
 
     def report(self, *, now):
         """Return a consistent snapshot and current period exposures."""

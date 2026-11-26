@@ -61,6 +61,20 @@ class FinanceLedgerTest(unittest.TestCase):
         with self.assertRaisesRegex(FinanceError, "launch date conflicts"):
             FinanceLedger(self.path, launch_at=now)
 
+    def test_clearing_old_reservation_does_not_release_current_month_expense(self):
+        self.authorize(monthly=2_000)
+        self.ledger.reserve("old", 1_500, now=LAUNCH)
+        now = LAUNCH + timedelta(days=35)
+        self.ledger.resolve("old", expense_cents=1_500, now=now, evidence="invoice")
+        with self.assertRaisesRegex(FinanceError, "monthly limit"):
+            self.ledger.reserve("new", 501, now=now)
+
+    def test_same_bank_evidence_cannot_increment_cash_under_new_key(self):
+        self.ledger.record_event("first", "cash", 1_000, now=LAUNCH, evidence="bank-1")
+        with self.assertRaisesRegex(FinanceError, "already recorded"):
+            self.ledger.record_event("second", "cash", 1_000, now=LAUNCH, evidence="bank-1")
+        self.assertEqual(self.ledger.report(now=LAUNCH)["received_cash_cents"], 1_000)
+
     def test_first_week_and_initial_risk_use_confirmed_expense_and_open_holds(self):
         self.authorize(monthly=6_000)
         self.ledger.reserve("a", 3_000, now=LAUNCH)
@@ -115,7 +129,7 @@ class FinanceLedgerTest(unittest.TestCase):
         self.assertTrue(self.ledger.report(now=LAUNCH)["paid_work_frozen"])
         with self.assertRaisesRegex(FinanceError, "exceeds remaining"):
             self.ledger.record_event("extra", "reversal", 1, now=LAUNCH,
-                                     evidence="bank-reversal", reverses="cash")
+                                     evidence="another-reversal", reverses="cash")
         self.ledger.record_event("recovery", "cash", 100, now=LAUNCH, evidence="new-bank")
         self.authorize(monthly=30_000, reference="unlock")
         with self.assertRaisesRegex(FinanceError, "frozen"):
