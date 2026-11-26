@@ -32,4 +32,6 @@ Run `python -B -m aame.qualification /path/to/evidence.json`. Keep actual eviden
 - Add `fixed_payment` with `fee_usd_cents`, `max_deductions_usd_cents`, `minimum_views`, `max_clearing_days`, `review_order` (`pre_then_post` or `post_only`), `submission_deadline_rule` and `withdrawal_terms`. For a positive view minimum include `view_metric_and_window`. The payment fact's `terms` must match the full payment object.
 - Add `permissions` keyed by action. Each record uses the same evidence fields plus the exact `action` and `mode` of `manual` or `automated`. A missing or expired grant yields `disabled`. A manual grant supports only a separately authorized operator handoff. Follow the [platform capability matrix](CAMPAIGN_FEASIBILITY.md) when reviewing grants, including the pending Content Rewards automation restriction.
 
+An optional eligibility fact field `clip_duration_ms: [minimum, maximum]` constrains the local ranker to the evidenced campaign range, with a 35-second recipe ceiling. Pass the actual brief to the reviewer for content, disclosures and duration checks.
+
 The command checks attestations and always emits `live_enabled: false`. Production requires a trusted evidence store, independent review, fresh dispatch gates and owner authorization.

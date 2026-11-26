@@ -20,7 +20,7 @@ from aame.handoff import (
     validate_submission_receipt,
 )
 from aame.qualification import IDENTITY_FIELDS, current_evidence, qualify, utc_time
-from aame.video import RenderReceipt, produce, verify_render
+from aame.video import MAX_CLIP_MS, RenderReceipt, produce, verify_render
 from aame.youtube_shorts import (
     Authorization,
     RemoteVideo,
@@ -139,6 +139,18 @@ class Workflow:
         if not re.fullmatch(r"[a-f0-9]{64}", transcript_hash):
             raise WorkflowError("invalid transcript SHA-256")
 
+        profile = packet["facts"]["eligibility"].get("clip_duration_ms")
+        minimum_ms, maximum_ms = 1_000, MAX_CLIP_MS
+        if profile is not None:
+            if (
+                not isinstance(profile, list) or len(profile) != 2
+                or any(type(value) is not int for value in profile)
+                or not 1_000 <= profile[0] <= profile[1]
+            ):
+                raise WorkflowError("invalid campaign clip duration")
+            minimum_ms, maximum_ms = profile[0], min(profile[1], MAX_CLIP_MS)
+            if minimum_ms > maximum_ms:
+                raise WorkflowError("campaign duration exceeds the local recipe")
         inputs = json.dumps(
             [packet, str(Path(source_root).resolve()), source, transcript, transcript_hash],
             sort_keys=True,
@@ -170,6 +182,7 @@ class Workflow:
                 Path(source_root), source, transcript, output,
                 expected_source_sha256=packet["asset_id"],
                 expected_transcript_sha256=transcript_hash,
+                minimum_ms=minimum_ms, maximum_ms=maximum_ms,
             )
             if not verify_render(output, receipt):
                 raise WorkflowError("technical QA failed")

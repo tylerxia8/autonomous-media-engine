@@ -26,6 +26,8 @@ class MomentSelectionTest(unittest.TestCase):
         self.assertIn("silence_penalty", ranked[0].reasons)
         self.assertGreaterEqual(ranked[0].score, ranked[1].score)
         self.assertEqual(ranked, rank_candidates(cues, limit=2))
+        with self.assertRaisesRegex(VideoError, "duration profile"):
+            rank_candidates(cues, minimum_ms=15_000)
 
 
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg is required")
