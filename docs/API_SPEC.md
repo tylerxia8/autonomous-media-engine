@@ -35,3 +35,5 @@ Run `python -B -m aame.qualification /path/to/evidence.json`. Keep actual eviden
 An optional eligibility fact field `clip_duration_ms: [minimum, maximum]` constrains the local ranker to the evidenced campaign range, with a 35-second recipe ceiling. Pass the actual brief to the reviewer for content, disclosures and duration checks.
 
 The command checks attestations and always emits `live_enabled: false`. Production requires a trusted evidence store, independent review, fresh dispatch gates and owner authorization.
+
+Generate a blocked starter for the selected Content Rewards route with `python -B -m aame content-rewards-template CAMPAIGN_ID`. Fill the known fields and scope all facts and permissions to the same identifiers, including the marketplace. Use evidence references that only authorized operators can resolve. The template contains no grants. Content Rewards packets enforce manual submission even if an automated declaration is present.

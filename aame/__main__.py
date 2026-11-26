@@ -7,7 +7,7 @@ from pathlib import Path
 from subprocess import SubprocessError
 
 from aame.demo import run_demo
-from aame.qualification import qualify, utc_time
+from aame.qualification import content_rewards_template, qualify, utc_time
 from aame.transcription import transcribe
 from aame.workflow import Workflow
 
@@ -24,6 +24,8 @@ def command_parser():
     commands = parser.add_subparsers(dest="command", required=True)
     demo = commands.add_parser("demo", help="run the complete synthetic media and payout fixture")
     demo.add_argument("directory", type=Path)
+    template = commands.add_parser("content-rewards-template", help="print a blocked evidence packet")
+    template.add_argument("campaign_id")
     speech = commands.add_parser("transcribe", help="transcribe one authorized file locally")
     speech.add_argument("directory", type=Path)
     speech.add_argument("--launch-at", type=timestamp, required=True)
@@ -62,6 +64,8 @@ def command_parser():
 def run(args, now):
     if args.command == "demo":
         return run_demo(args.directory)
+    if args.command == "content-rewards-template":
+        return content_rewards_template(args.campaign_id)
     if args.command == "transcribe":
         workflow = Workflow(args.directory, launch_at=args.launch_at)
         workflow.check_running()

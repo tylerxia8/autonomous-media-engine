@@ -2,7 +2,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import unittest
 
-from aame.qualification import ACTIONS, FACTS, qualify
+from aame.qualification import ACTIONS, FACTS, content_rewards_template, qualify
 
 
 NOW = datetime(2026, 11, 26, tzinfo=timezone.utc)
@@ -55,6 +55,19 @@ class QualificationTest(unittest.TestCase):
         self.assertEqual(result["capabilities"]["submit"], "manual")
         self.assertEqual(result["capabilities"]["read_metrics"], "disabled")
         self.assertFalse(result["live_enabled"])
+
+    def test_marketplace_template_is_blocked_and_automated_submission_is_disabled(self):
+        blank = content_rewards_template("candidate")
+        self.assertEqual(qualify(blank, NOW)["status"], "blocked")
+        packet = evidence_packet()
+        packet["marketplace"] = "content_rewards"
+        for record in (*packet["facts"].values(), *packet["permissions"].values()):
+            record["scope"]["marketplace"] = "content_rewards"
+        self.assertEqual(qualify(packet, NOW)["status"], "evidence_complete")
+        packet["permissions"]["submit"]["mode"] = "automated"
+        result = qualify(packet, NOW)
+        self.assertIn("permission:submit", result["blockers"])
+        self.assertEqual(result["capabilities"]["submit"], "disabled")
 
     def test_every_missing_fact_disables_all_actions(self):
         for fact in FACTS:

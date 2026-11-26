@@ -62,6 +62,50 @@ def valid_payment(payment):
     )
 
 
+def identity_scope(packet):
+    scope = {field: packet.get(field) for field in IDENTITY_FIELDS}
+    if "marketplace" in packet:
+        scope["marketplace"] = packet["marketplace"]
+    return scope
+
+
+def content_rewards_template(campaign_id):
+    if not nonblank(campaign_id):
+        raise ValueError("campaign ID is required")
+    identity = {
+        "campaign_id": campaign_id, "version": None, "platform": "youtube",
+        "account_id": None, "asset_id": None, "marketplace": "content_rewards",
+    }
+    payment = {
+        "fee_usd_cents": None, "max_deductions_usd_cents": None,
+        "minimum_views": None, "view_metric_and_window": None,
+        "max_clearing_days": None, "review_order": None,
+        "submission_deadline_rule": None, "withdrawal_terms": None,
+    }
+
+    def missing_evidence():
+        return {
+            "reference": None, "reviewer": None, "verified": False,
+            "observed_at": None, "expires_at": None, "scope": dict(identity),
+        }
+
+    facts = {name: missing_evidence() for name in FACTS}
+    facts["eligibility"]["clip_duration_ms"] = None
+    facts["payment"]["terms"] = dict(payment)
+    return {
+        **identity,
+        "fixed_payment": payment,
+        "facts": facts,
+        "permissions": {
+            action: {
+                **missing_evidence(), "action": action,
+                "mode": "manual" if action == "submit" else None,
+            }
+            for action in ACTIONS
+        },
+    }
+
+
 def qualify(packet, now):
     """Evaluate exact-snapshot attestations. Results never enable live actions."""
     if not isinstance(packet, dict):
@@ -69,7 +113,7 @@ def qualify(packet, now):
     if now.utcoffset() != timedelta(0):
         raise ValueError("qualification time must be UTC")
 
-    identity = {field: packet.get(field) for field in IDENTITY_FIELDS}
+    identity = identity_scope(packet)
     complete_identity = all(nonblank(value) for value in identity.values())
     facts = packet.get("facts")
     permissions = packet.get("permissions")
@@ -79,6 +123,8 @@ def qualify(packet, now):
     blockers = []
     if not complete_identity:
         blockers.append("incomplete_identity")
+    if "marketplace" in packet and packet["marketplace"] not in ("content_rewards", "direct"):
+        blockers.append("unsupported_marketplace")
     for name in FACTS:
         record = facts.get(name)
         if not current_evidence(record, now) or record.get("scope") != identity:
@@ -100,6 +146,10 @@ def qualify(packet, now):
             and record.get("scope") == identity
             and record.get("action") == action
             and record.get("mode") in MODES
+            and (
+                packet.get("marketplace") != "content_rewards"
+                or action != "submit" or record["mode"] == "manual"
+            )
         ):
             capabilities[action] = record["mode"]
 

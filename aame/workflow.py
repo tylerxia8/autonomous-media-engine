@@ -19,7 +19,7 @@ from aame.handoff import (
     build_submission_handoff,
     validate_submission_receipt,
 )
-from aame.qualification import IDENTITY_FIELDS, current_evidence, qualify, utc_time
+from aame.qualification import current_evidence, identity_scope, qualify, utc_time
 from aame.video import MAX_CLIP_MS, RenderReceipt, produce, verify_render
 from aame.youtube_shorts import (
     Authorization,
@@ -335,7 +335,7 @@ class Workflow:
         if (
             now.utcoffset() != timedelta(0)
             or not current_evidence(grant, now)
-            or grant.get("scope") != {field: packet[field] for field in IDENTITY_FIELDS}
+            or grant.get("scope") != identity_scope(packet)
             or grant.get("action") != "reconcile"
             or grant.get("mode") != "manual"
         ):
