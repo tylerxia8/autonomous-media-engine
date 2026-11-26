@@ -18,3 +18,7 @@ Initial implementation exposes typed local commands. Names below are interface n
 | report | date_range | audited aggregates and exceptions |
 
 Use UTC instants, integer milliseconds and minor currency units. Idempotency keys scope to environment, operation and account. Conflicting payload reuse returns conflict. Common errors are denied_rights, missing_capability, budget_deny, needs_review, stale_evidence, rate_limited and ambiguous_remote_result. Only transient known-safe failures retry with bounded backoff. Provider adapters declare supported actions, scopes, costs, quota behavior, permission source and evidence TTL. Sign and deduplicate supported webhooks or use permitted polling. Manual receipts identify operator, time, evidence and external reference.
+
+## YouTube Shorts simulation
+
+The offline adapter makes an injected simulation call after explicit owner enablement, same-request authorization, expiry, rights, QA, channel OAuth and quota checks. This contract sends explicit privacy, audience and paid-placement settings. A receipt requires processed media and matching visibility. Unknown outcomes block replay. Production must resolve evidence at dispatch, conform to OAuth and upload UX requirements, account for paid work through the ledger, use durable attempts and verify the processed remote status before generating a campaign handoff.

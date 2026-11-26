@@ -31,3 +31,9 @@ These are specified cases for implementation. Fixtures must run offline and exer
 | AT-025 | AAME-025 | Reproduce holdout economics, stop unsafe exploration and restore control within one scheduler poll. |
 | AT-026 | AAME-026 | Inspect PR scope, separate branch, passed CI and reviewer identity before owner merge. |
 | AT-027 | AAME-027 | Exercise egress deny, secrets redaction, hostile media and heartbeat loss. Run containment and restore drill. |
+
+## November 26 platform checkpoint
+
+AT-002 accepts an explicit evidence gap for this offline iteration. Production qualification still requires a verified offer, source, account and payout evidence. AT-012 exercises YouTube first. The mock tests cover default dry-run, shutdown, missing/stale or mismatched authorization, explicit privacy and disclosure fields, duplicate and conflicting requests, timeout and visibility/processing mismatches. Run `python -B -m unittest discover -s tests -v` from the repository root.
+
+AT-013 keeps Content Rewards automated submission disabled until a creator-facing API and affirmative permission are documented. The operator handoff requires applicable terms, review order, public URL when required, a verified deadline and a receipt. Account eligibility and external behavior remain live verification gates for a separately authorized pilot.
