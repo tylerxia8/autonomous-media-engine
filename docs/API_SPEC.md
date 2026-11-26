@@ -22,3 +22,14 @@ Use UTC instants, integer milliseconds and minor currency units. Idempotency key
 ## YouTube Shorts simulation
 
 The offline adapter makes an injected simulation call after explicit owner enablement, same-request authorization, expiry, rights, QA, channel OAuth and quota checks. This contract sends explicit privacy, audience and paid-placement settings. A receipt requires processed media and matching visibility. Unknown outcomes block replay. Production must resolve evidence at dispatch, conform to OAuth and upload UX requirements, account for paid work through the ledger, use durable attempts and verify the processed remote status before generating a campaign handoff.
+
+## Offline opportunity qualification
+
+Run `python -B -m aame.qualification /path/to/evidence.json`. Keep actual evidence and account identifiers outside Git. The command reads a local operator-reviewed packet and emits a point-in-time decision. Exit 0 means the required evidence fields and permission scopes passed. Exit 1 means blocked. Exit 2 means the packet could not be read or parsed.
+
+- Identify the exact snapshot with nonempty `campaign_id`, `version`, `platform`, `account_id` and `asset_id`.
+- Add `facts` records for `eligibility`, `active_funding`, `commercial_rights` and `payment`. Each record requires a reviewer, a reference to reviewed evidence, literal `verified: true`, UTC `observed_at` and `expires_at` timestamps, and a `scope` object containing the five exact identifiers.
+- Add `fixed_payment` with `fee_usd_cents`, `max_deductions_usd_cents`, `minimum_views`, `max_clearing_days`, `review_order` (`pre_then_post` or `post_only`), `submission_deadline_rule` and `withdrawal_terms`. For a positive view minimum include `view_metric_and_window`. The payment fact's `terms` must match the full payment object.
+- Add `permissions` keyed by action. Each record uses the same evidence fields plus the exact `action` and `mode` of `manual` or `automated`. A missing or expired grant yields `disabled`. A manual grant supports only a separately authorized operator handoff. Follow the [platform capability matrix](CAMPAIGN_FEASIBILITY.md) when reviewing grants, including the pending Content Rewards automation restriction.
+
+The command checks attestations and always emits `live_enabled: false`. Production requires a trusted evidence store, independent review, fresh dispatch gates and owner authorization.
