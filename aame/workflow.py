@@ -111,6 +111,8 @@ class Workflow:
         for action in actions:
             if decision["capabilities"][action] == "disabled":
                 raise WorkflowError(f"action disabled: {action}")
+        if packet.get("marketplace") == "direct":
+            raise WorkflowError("direct pilot dispatch is not implemented in this simulator")
         if packet["platform"] != "youtube":
             raise WorkflowError("only the YouTube fixture is supported")
         return decision

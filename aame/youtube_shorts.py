@@ -18,6 +18,7 @@ class Upload:
     visibility: Visibility
     made_for_kids: bool
     paid_product_placement: bool
+    description: str = ""
 
 
 @dataclass(frozen=True)

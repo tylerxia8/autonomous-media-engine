@@ -5,8 +5,10 @@ from fractions import Fraction
 from aame.qualification import current_evidence, identity_scope, qualify
 
 
-def rank_campaigns(candidates, *, now, budget_cents=0):
+def rank_campaigns(candidates, *, now, budget_cents=0, route="direct"):
     """Return an advisory decision. This never reserves money or enables work."""
+    if route not in ("direct", "content_rewards"):
+        raise ValueError("unsupported campaign route")
     if type(budget_cents) is not int or not 0 <= budget_cents <= 30_000:
         raise ValueError("invalid available budget in cents")
     if not isinstance(candidates, list) or len(candidates) > 1_000:
@@ -27,7 +29,7 @@ def rank_campaigns(candidates, *, now, budget_cents=0):
         if key in seen:
             raise ValueError("duplicate qualified campaign scope")
         seen.add(key)
-        if packet["platform"] != "youtube" or packet.get("marketplace") != "content_rewards":
+        if packet["platform"] != "youtube" or packet.get("marketplace") != route:
             blocked.append({**entry, "reasons": ["unsupported_route"]})
             continue
 
