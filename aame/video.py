@@ -190,8 +190,20 @@ class ClipCandidate:
     version: str = SCORING_VERSION
 
 
-def rank_candidates(cues, *, limit=1, minimum_ms=1_000, maximum_ms=MAX_CLIP_MS):
-    """Rank bounded contiguous cue windows with reproducible explanations."""
+def rank_candidates(cues, *, limit=1, minimum_ms=1_000, maximum_ms=MAX_CLIP_MS,
+                    excluded_windows=()):
+    # Half-open source time intervals from prior cuts of the same authorized asset.
+    # Limit the list to the maximum contracted bundle size.
+    if not isinstance(excluded_windows, (tuple, list)) or len(excluded_windows) > 100:
+        raise VideoError("invalid excluded windows")
+    ranges = []
+    for item in excluded_windows:
+        if (not isinstance(item, (tuple, list)) or len(item) != 2
+                or any(type(t) is not int for t in item)
+                or not 0 <= item[0] < item[1] <= MAX_SOURCE_MS):
+            raise VideoError("invalid excluded window")
+        ranges.append(tuple(item))
+    # Rank bounded contiguous cue windows with reproducible explanations.
     if type(limit) is not int or not 1 <= limit <= 20:
         raise VideoError("candidate limit must be between 1 and 20")
     if (
@@ -207,6 +219,9 @@ def rank_candidates(cues, *, limit=1, minimum_ms=1_000, maximum_ms=MAX_CLIP_MS):
                 cue = cues[last]
                 if last > first and cue.start_ms - cues[last - 1].end_ms > 2_500:
                     break
+                if any(beginning.start_ms < end and start < cue.end_ms
+                       for start, end in ranges):
+                    break  # Extending this window cannot remove its overlap.
                 duration = cue.end_ms - beginning.start_ms
                 if duration > maximum_ms:
                     break
@@ -327,6 +342,7 @@ def produce(
     expected_transcript_sha256: str,
     minimum_ms: int = 1_000,
     maximum_ms: int = MAX_CLIP_MS,
+    excluded_windows=(),
 ) -> RenderReceipt:
     """Render a clip atomically. Both authorized digests are mandatory."""
     output = Path(output)
@@ -341,7 +357,8 @@ def produce(
             _snapshot(source_root, transcript_relative_path, transcript, expected_transcript_sha256,
                       MAX_TRANSCRIPT_BYTES)
             all_cues = _load_cues(transcript, _source_duration(source))
-            winner = rank_candidates(all_cues, minimum_ms=minimum_ms, maximum_ms=maximum_ms)[0]
+            winner = rank_candidates(all_cues, minimum_ms=minimum_ms, maximum_ms=maximum_ms,
+                                     excluded_windows=excluded_windows)[0]
             cues = all_cues[winner.first_cue:winner.last_cue + 1]
             _render(directory, cues)
             clip = directory / "clip.mp4"
