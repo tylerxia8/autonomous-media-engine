@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import Mock
 
 from aame.youtube_dispatch import DispatchResult
-from aame.youtube_live import CHANNEL_CHECK, advance
+from aame.youtube_live import CHANNEL_CHECK, _advance_candidate, advance
 from aame.youtube_transport import Response
 
 
@@ -54,15 +54,29 @@ class LiveUploadTest(unittest.TestCase):
         self.args.approval.chmod(0o600)
 
     def execute(self):
-        return advance(
+        return _advance_candidate(
             self.args, clock=lambda: NOW, token_factory=self.token_factory,
             transport_factory=self.transport_factory, dispatcher_factory=self.dispatcher_factory,
         )
 
+    def test_public_execute_is_blocked_even_with_valid_looking_approval(self):
+        self.args.credentials.unlink()
+        with self.assertRaisesRegex(ValueError, "live publication disabled"):
+            advance(
+                self.args, clock=lambda: NOW, token_factory=self.token_factory,
+                transport_factory=self.transport_factory,
+                dispatcher_factory=self.dispatcher_factory,
+            )
+        self.token_factory.assert_not_called()
+        self.transport_factory.assert_not_called()
+        self.dispatcher_factory.assert_not_called()
+
     def test_dry_run_does_not_read_credentials_or_contact_provider(self):
         self.args.credentials.unlink()
         self.args.execute = False
-        self.assertEqual(self.execute()["state"], "dry_run")
+        self.assertEqual(advance(self.args, clock=lambda: NOW, token_factory=self.token_factory,
+                                 transport_factory=self.transport_factory,
+                                 dispatcher_factory=self.dispatcher_factory)["state"], "dry_run")
         self.token_factory.assert_not_called()
         self.transport_factory.assert_not_called()
 
