@@ -13,3 +13,26 @@ Official public documentation reviewed November 26, 2026. Production access and 
 | Direct fixed-fee pilot | Candidate commercial route with terms negotiated directly. | Blocked until signed fee, eligible YouTube channel/source, acceptance timeline, payout method and rights exist. Prefer a route with zero view threshold and verified rapid collection. |
 
 **End-to-end status.** Blocked. No signed direct pilot or account-verified funded YouTube-eligible offer, source grant, cleared OAuth identity or payout eligibility is evidenced. No live action is authorized by this update. Suggested evidence packet includes exact program/experience, campaign and brief version, creator/channel, rights, review order, disclosure, eligible metric/threshold, timestamps and expiry, funding, fees, approvals and cash receipt references. Unknown provider capabilities default to disabled.
+
+## Public leads checked November 26, 2026
+
+These listings are discovery evidence. Keep each lead blocked until an authorized reviewer confirms the current full brief and exact account, asset and payout eligibility.
+
+| Candidate | Public evidence | Account-level questions |
+|---|---|---|
+| Remvi Home Renovation UGC | Listed as accepting clips with $75 per approved YouTube post and $1,000 remaining when checked. Explicitly seeks US-based creators for Shorts. [Campaign](https://contentrewards.com/c/campaigns/3bfa1033-1ba7-4f34-a4f8-470634db8630) | Full content requirements, creator rules and seven assets are gated. Verify any view minimum, AI editing permission, required disclosures, asset rights and the complete clearing timeline. |
+| Superstore Your Shop in One Link | Listed as accepting clips with $10 per approved YouTube post and $1,000 remaining when checked. [Campaign](https://contentrewards.com/c/campaigns/5ad699cd-7aed-44f7-9b57-489fdd6e2628) | The indexed brief specifies a 15–45 second vertical product demo, no follower minimum and draft preapproval. Confirm those terms in the joined account, plus Shorts eligibility, any minimum qualifying views, creator-kit rights, disclosure, fee and clearing timing. Lower fee per post limits worthwhile spend. |
+
+No campaign was joined. No public listing establishes an AAME account grant, verified clearing time, or unattended creator submission permission.
+
+## Direct pilot selected
+
+Offer a recurring short-video production service to a B2B podcast, webinar host or small production agency that owns a consistent source feed. Propose a **$75 prepaid pilot for three clips from one episode**, with one delivery destination and a zero-view payment condition. This is proposed pricing, with no buyer commitment. Use a client-approved destination, exact format criteria and advance authorization for style, disclosures and exceptions. Escalate ambiguous rights or content edge cases.
+
+Before enabling a pilot, verify the payer, signed agreement, feed identity and commercial rights, counterpart's authority over the destination, machine-checkable acceptance, permitted automated delivery endpoint, and a settlement feed that distinguishes cleared cash and reversals. Keep private evidence and media outside this public repository.
+
+- **Reformat Studio** offers recurring clips from B2B podcast and webinar recordings. Its public offer validates the service category and makes it a potential overflow prospect. [Reformat Studio](https://reformatstudio.com/)
+- **James Podcast Studio** advertises agency white-label production and short-form repurposing. It is a potential overflow prospect. [White-label services](https://podcastproduction.agency/white-label)
+- **Lower Street** offers B2B podcast production and clips. It is a potential prospect for a narrow per-episode pilot. [B2B podcast production](https://lowerstreet.co/services/b2b-podcast-production)
+
+The links describe existing services and provide no evidence that these businesses currently buy outsourced clips. No outreach or agreement has been made. Content Rewards is outside the selected pilot. An operator can still explicitly evaluate marketplace evidence without automatic fallback.

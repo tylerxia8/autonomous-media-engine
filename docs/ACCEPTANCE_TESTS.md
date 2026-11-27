@@ -37,3 +37,9 @@ These are specified cases for implementation. Fixtures must run offline and exer
 AT-002 accepts an explicit evidence gap for this offline iteration. Production qualification still requires a verified offer, source, account and payout evidence. AT-012 exercises YouTube first. The mock tests cover default dry-run, shutdown, missing/stale or mismatched authorization, explicit privacy and disclosure fields, duplicate and conflicting requests, timeout and visibility/processing mismatches. Run `python -B -m unittest discover -s tests -v` from the repository root.
 
 AT-013 keeps Content Rewards automated submission disabled until a creator-facing API and affirmative permission are documented. The operator handoff requires applicable terms, review order, public URL when required, a verified deadline and a receipt. Account eligibility and external behavior remain live verification gates for a separately authorized pilot.
+
+## Executable local pipeline
+
+Run `python -B -m unittest discover -s tests -v` and `python -B -m aame demo /tmp/aame-demo` with an unused path. The FFmpeg-backed fixture exercises qualification, hash-bound acquisition, transcript ingest, rendering, technical QA, mock publication, manual submission receipt validation, payout approval and settlement. It reports simulated cash separately and checks replay, tampering, revocation, shutdown and deadline failures. Additional tests exercise concurrent budget enforcement, receipt deduplication, resumable-upload contracts, experiment assignment and evaluation isolation.
+
+Live acceptance remains open. A public offer, mock video ID and simulated cash receipt do not satisfy account-level authorization, provider processing or bank settlement tests. Actual Whisper inference needs an installed model; tests exercise the input, extraction and caption interface with a substituted recognizer.
