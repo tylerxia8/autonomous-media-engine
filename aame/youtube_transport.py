@@ -12,6 +12,7 @@ MAX_RESPONSE_BYTES = 1024 * 1024
 _ALLOWED = {
     "/upload/youtube/v3/videos": {"POST", "PUT"},
     "/youtube/v3/videos": {"GET"},
+    "/youtube/v3/channels": {"GET"},
 }
 
 

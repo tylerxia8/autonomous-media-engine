@@ -10,6 +10,10 @@ IDENTITY_FIELDS = ("campaign_id", "version", "platform", "account_id", "asset_id
 ACTIONS = ("discover", "acquire", "edit", "publish", "submit", "read_metrics", "reconcile")
 FACTS = ("eligibility", "active_funding", "commercial_rights", "payment")
 MODES = ("manual", "automated")
+DIRECT_REFERENCES = (
+    "payer_ref", "authorized_feed_ref", "automated_delivery_ref", "settlement_feed_ref",
+)
+DIRECT_AUTOMATED = ("acquire", "edit", "publish", "submit", "reconcile")
 
 
 def nonblank(value):
@@ -70,11 +74,19 @@ def identity_scope(packet):
 
 
 def content_rewards_template(campaign_id):
+    return _campaign_template(campaign_id, "content_rewards")
+
+
+def direct_pilot_template(campaign_id):
+    return _campaign_template(campaign_id, "direct")
+
+
+def _campaign_template(campaign_id, marketplace):
     if not nonblank(campaign_id):
         raise ValueError("campaign ID is required")
     identity = {
         "campaign_id": campaign_id, "version": None, "platform": "youtube",
-        "account_id": None, "asset_id": None, "marketplace": "content_rewards",
+        "account_id": None, "asset_id": None, "marketplace": marketplace,
     }
     payment = {
         "fee_usd_cents": None, "max_deductions_usd_cents": None,
@@ -92,6 +104,11 @@ def content_rewards_template(campaign_id):
     facts = {name: missing_evidence() for name in FACTS}
     facts["eligibility"]["clip_duration_ms"] = None
     facts["payment"]["terms"] = dict(payment)
+    if marketplace == "direct":
+        facts["direct_agreement"] = {
+            **missing_evidence(), **dict.fromkeys(DIRECT_REFERENCES),
+            "fixed_payment": dict(payment), "routine_human_review_required": None,
+        }
     return {
         **identity,
         "fixed_payment": payment,
@@ -99,7 +116,7 @@ def content_rewards_template(campaign_id):
         "permissions": {
             action: {
                 **missing_evidence(), "action": action,
-                "mode": "manual" if action == "submit" else None,
+                "mode": "manual" if action == "submit" and marketplace == "content_rewards" else None,
             }
             for action in ACTIONS
         },
@@ -135,6 +152,22 @@ def qualify(packet, now):
         if facts["payment"].get("terms") != packet["fixed_payment"]:
             blockers.append("payment_terms_mismatch")
 
+    if packet.get("marketplace") == "direct":
+        agreement = facts.get("direct_agreement")
+        if (
+            not current_evidence(agreement, now)
+            or agreement.get("scope") != identity
+            or agreement.get("fixed_payment") != packet.get("fixed_payment")
+            or agreement.get("routine_human_review_required") is not False
+            or any(not nonblank(agreement.get(field)) for field in DIRECT_REFERENCES)
+        ):
+            blockers.append("direct_agreement")
+        terms = packet.get("fixed_payment")
+        if valid_payment(terms) and (
+            terms["minimum_views"] != 0 or terms["review_order"] != "post_only"
+        ):
+            blockers.append("direct_payment_requires_unattended_acceptance")
+
     evidence_complete = not blockers
     capabilities = {}
     for action in ACTIONS:
@@ -156,6 +189,12 @@ def qualify(packet, now):
     for action in ("discover", "acquire", "edit", "publish", "submit", "reconcile"):
         if capabilities[action] == "disabled":
             blockers.append(f"permission:{action}")
+
+    if evidence_complete and packet.get("marketplace") == "direct":
+        for action in DIRECT_AUTOMATED:
+            if capabilities[action] != "automated":
+                capabilities[action] = "disabled"
+                blockers.append(f"direct_requires_automation:{action}")
 
     return {
         "status": "blocked" if blockers else "evidence_complete",

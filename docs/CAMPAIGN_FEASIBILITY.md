@@ -25,4 +25,14 @@ These listings are discovery evidence. Keep each lead blocked until an authorize
 
 No campaign was joined. No public listing establishes an AAME account grant, verified clearing time, or unattended creator submission permission.
 
-The owner's selected first-payout route is Content Rewards. Start with Superstore qualification if the channel is new or its audience is unverified. Compare Remvi if the owner can confirm US eligibility and the full brief. The marketplace requires a connected, verified social account for campaign applications. Record the brief and creative constraints after the authorized operator reviews the exact campaign. [Campaign discovery and application guide](https://help.contentrewards.com/en/articles/16817237-find-and-apply-to-a-campaign)
+## Direct pilot selected
+
+Offer a recurring short-video production service to a B2B podcast, webinar host or small production agency that owns a consistent source feed. Propose a **$75 prepaid pilot for three clips from one episode**, with one delivery destination and a zero-view payment condition. This is proposed pricing, with no buyer commitment. Use a client-approved destination, exact format criteria and advance authorization for style, disclosures and exceptions. Escalate ambiguous rights or content edge cases.
+
+Before enabling a pilot, verify the payer, signed agreement, feed identity and commercial rights, counterpart's authority over the destination, machine-checkable acceptance, permitted automated delivery endpoint, and a settlement feed that distinguishes cleared cash and reversals. Keep private evidence and media outside this public repository.
+
+- **Reformat Studio** offers recurring clips from B2B podcast and webinar recordings. Its public offer validates the service category and makes it a potential overflow prospect. [Reformat Studio](https://reformatstudio.com/)
+- **James Podcast Studio** advertises agency white-label production and short-form repurposing. It is a potential overflow prospect. [White-label services](https://podcastproduction.agency/white-label)
+- **Lower Street** offers B2B podcast production and clips. It is a potential prospect for a narrow per-episode pilot. [B2B podcast production](https://lowerstreet.co/services/b2b-podcast-production)
+
+The links describe existing services and provide no evidence that these businesses currently buy outsourced clips. No outreach or agreement has been made. Content Rewards is outside the selected pilot. An operator can still explicitly evaluate marketplace evidence without automatic fallback.
