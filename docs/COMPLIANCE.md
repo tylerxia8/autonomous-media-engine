@@ -1,0 +1,7 @@
+# Rights and compliance
+
+Require evidence of owner or authorized licensor, asset identity, commercial derivative rights, AI processing, music/likeness permissions, destination, territory, validity and monetization scope. An offer alone does not confer rights over third-party material. Store exact terms revision. Deny unknowns. Verify policy on data retention, competitive metadata use, derivative metrics and consent before enabling analytics ingestion.
+
+Maintain action-level permission for discovery, download, editing, publishing, submission, metrics and settlement access. A platform API does not establish marketplace authorization. Route allowed manual actions through a task with evidence and receipt. No scraping through private endpoints, bypasses, artificial engagement, duplicate spam, undisclosed required sponsorships or misleading cuts. Verify minors, sensitive content, music, endorsements and likeness. Require safe caption positioning and contextual fidelity. Check destination rules on reuse, altered/synthetic content, disclosures and frequency.
+
+Independent QA checks each output against original context and campaign. Automated checks handle technical constraints and known policy rules. Escalate ambiguous rights, misleading edits and sensitive cases. Recheck before acquire, publish, submit and stream ingest. Revocation halts pending activity, queues permitted takedown review and propagates to retention controls.
