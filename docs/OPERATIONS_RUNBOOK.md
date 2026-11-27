@@ -22,4 +22,36 @@ Activate persistent emergency stop, pause acquisition/publish/submission/paid di
 3. Run `python -B -m aame prepare --help` for inputs. Pass the same UTC launch instant when reopening a workflow. Review the output visually, then pass its exact digest to `review`. The simulated publish stage requires an automated fixture grant and the simulated submit stage requires a manual grant. Use the report's `published_at` and the supported 30-minute fixture deadline when exercising submit. Real campaign deadline rules require their own verified adapter.
 4. Use `approve` or `reject` to record the simulated campaign decision, then `reconcile` for an approved fixture. Run `report` to inspect durable status, payout aging and simulated cash over the trailing seven days. Record owner involvement with `owner-time` and a unique entry key. `stop` blocks new workflow actions and `revoke` blocks the affected job. Existing simulated submissions can still reconcile under a current dedicated grant. Interrupted renders need operator inspection. Keep fixture and future production databases separate and keep runtime files outside Git.
 
-The [official YouTube resumable protocol](https://developers.google.com/youtube/data/guides/using_resumable_upload_protocol) is represented by offline request and response contracts. A future production dispatcher must authenticate the channel, persist the session before transfer, recheck rights and budget at dispatch, resolve ambiguous outcomes through the same session, and independently confirm processing/visibility. The transport and session journal are available as separately tested library components. The CLI stays simulated. A production caller must supply scoped OAuth and a fresh authorization callback for every request, and keep the session journal on a private filesystem. A live pilot still requires an independently verified campaign or signed payer, a licensed source, a cleared destination account, a permitted submission workflow and bank settlement evidence.
+The [official YouTube resumable protocol](https://developers.google.com/youtube/data/guides/using_resumable_upload_protocol) is represented by offline request and response contracts. A future production dispatcher must authenticate the channel, persist the session before transfer, recheck rights and budget at dispatch, resolve ambiguous outcomes through the same session, and independently confirm processing/visibility. The transport and session journal are available as separately tested library components. The workflow CLI stays simulated. A production caller must supply scoped OAuth and a fresh authorization callback for every request, and keep the session journal on a private filesystem. A live pilot still requires an independently verified campaign or signed payer, a licensed source, a cleared destination account, a permitted submission workflow and bank settlement evidence.
+
+## Unattended YouTube upload after one-time OAuth
+
+Use a Google Cloud project you control, enable the YouTube Data API v3, and configure a Desktop OAuth client. On the channel owner's workstation, install `google-auth-oauthlib` and run `python -B -m aame.youtube_live authorize CLIENT_JSON TOKEN_JSON`. Google opens consent in the local browser. Select the actual upload channel and authorize upload and read-only channel verification. Keep the Desktop client JSON and generated token owner-only, outside Git and chat. Google documents that external OAuth apps in Testing can issue refresh tokens that expire after seven days when requesting YouTube scopes. Configure an appropriate production consent setup for ongoing use. [Google desktop authorization](https://developers.google.com/identity/protocols/oauth2/native-app) · [OAuth token expiration](https://developers.google.com/identity/protocols/oauth2#expiration)
+
+Provide an owner-only JSON approval file with this shape. Replace example values with actual verified evidence and a UTC approval window.
+
+```json
+{
+  "verified": true,
+  "owner_enabled": true,
+  "reference": "private owner approval reference",
+  "reviewer": "owner",
+  "rights_reference": "private source rights reference",
+  "observed_at": "2026-11-27T00:00:00Z",
+  "expires_at": "2026-11-28T00:00:00Z",
+  "category_id": "22",
+  "contains_synthetic_media": false,
+  "upload": {
+    "channel_id": "UC followed by the exact channel identifier",
+    "campaign_version": "approved cut revision",
+    "artifact_hash": "lowercase SHA-256 of the approved MP4",
+    "title": "Approved title",
+    "description": "Approved description with source credit",
+    "visibility": "private",
+    "made_for_kids": false,
+    "paid_product_placement": false
+  }
+}
+```
+
+Run `python -B -m aame.youtube_live advance --approval APPROVAL_JSON --video CLIP_MP4 --credentials TOKEN_JSON --journal PRIVATE_DIRECTORY` for local validation. Append `--execute` only for an approved send. The command confirms the OAuth channel, persists the resumable upload session, and returns a video URL only after processing and visibility match. Reinvoke with the same approved inputs and journal to advance pending uploads. A scheduler on the authorized workstation can run that bounded command repeatedly using private paths outside the repo. Stop on `confirmed`, `authorization_required` or `reconciliation_required`. Keep the workstation OAuth token on that workstation. Place a file named `STOP` in the journal directory to block new requests. Withdraw or expire the approval to revoke a specific video. The simulation CLI is separate. [Channels: list](https://developers.google.com/youtube/data/reference/rest/v3/channels/list) · [YouTube resumable upload](https://developers.google.com/youtube/data/guides/using_resumable_upload_protocol)
