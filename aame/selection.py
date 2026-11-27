@@ -2,7 +2,7 @@
 
 from fractions import Fraction
 
-from aame.qualification import current_evidence, identity_scope, qualify
+from aame.qualification import PRIVATE_PLATFORM, current_evidence, identity_scope, qualify
 
 
 def rank_campaigns(candidates, *, now, budget_cents=0, route="direct"):
@@ -29,7 +29,8 @@ def rank_campaigns(candidates, *, now, budget_cents=0, route="direct"):
         if key in seen:
             raise ValueError("duplicate qualified campaign scope")
         seen.add(key)
-        if packet["platform"] != "youtube" or packet.get("marketplace") != route:
+        platforms = ("youtube", PRIVATE_PLATFORM) if route == "direct" else ("youtube",)
+        if packet["platform"] not in platforms or packet.get("marketplace") != route:
             blocked.append({**entry, "reasons": ["unsupported_route"]})
             continue
 
