@@ -10,7 +10,7 @@ import time
 import unittest
 
 from aame.direct_bundle import bundle_manifest, manifest_digest, validate_receipt
-from aame.video import Cue, VideoError, produce, rank_candidates, verify_render
+from aame.video import Cue, VideoError, produce, rank_candidates, verify_render, plan_bundle
 
 
 def digest(path):
@@ -53,6 +53,8 @@ class DirectPilotBenchmark(unittest.TestCase):
                 {"start_ms": 16500, "end_ms": 22000, "text": "Third distinct fixture moment."},
             ]), encoding="utf8")
             source_hash, transcript_hash = digest(source), digest(transcript)
+            planned = plan_bundle([Cue(**row) for row in json.loads(transcript.read_text())],
+                                  count=3, minimum_ms=5000, maximum_ms=6000)
             windows, clips, observations = [], [], []
             begin = time.perf_counter()
             for i in range(3):
@@ -62,7 +64,10 @@ class DirectPilotBenchmark(unittest.TestCase):
                                   expected_source_sha256=source_hash,
                                   expected_transcript_sha256=transcript_hash,
                                   minimum_ms=5000, maximum_ms=6000,
-                                  excluded_windows=windows)
+                                  excluded_windows=windows,
+                                  selected_window=(planned[i].start_ms, planned[i].end_ms))
+                self.assertEqual((receipt.start_ms, receipt.end_ms),
+                                 (planned[i].start_ms, planned[i].end_ms))
                 self.assertTrue(verify_render(output, receipt))
                 self.assertEqual(receipt.output_sha256, digest(output))
                 for start, end in windows:
