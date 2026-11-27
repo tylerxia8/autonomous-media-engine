@@ -111,8 +111,13 @@ def begin(upload, *, category_id, contains_synthetic_media, size):
         or not isinstance(upload.title, str) or not upload.title.strip()
     ):
         raise ValueError("explicit title, visibility and disclosures required")
+    snippet = {"title": upload.title, "categoryId": category_id}
+    if not isinstance(upload.description, str) or len(upload.description.encode()) > 5000:
+        raise ValueError("invalid YouTube description")
+    if upload.description:
+        snippet["description"] = upload.description
     body = json.dumps({
-        "snippet": {"title": upload.title, "categoryId": category_id},
+        "snippet": snippet,
         "status": {
             "privacyStatus": upload.visibility,
             "selfDeclaredMadeForKids": upload.made_for_kids,
