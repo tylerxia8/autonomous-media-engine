@@ -1,7 +1,8 @@
 from copy import deepcopy
 import unittest
 
-from aame.qualification import DIRECT_AUTOMATED, direct_pilot_template, identity_scope
+from aame.qualification import (DIRECT_AUTOMATED, PRIVATE_PLATFORM, direct_pilot_template,
+                                identity_scope, qualify)
 from aame.selection import rank_campaigns
 from test_qualification import NOW, evidence_packet
 
@@ -90,6 +91,50 @@ class DirectSelectionTest(unittest.TestCase):
         manual["packet"]["permissions"]["submit"]["mode"] = "manual"
         result = rank_campaigns([manual], now=NOW)
         self.assertIn("direct_requires_automation:submit", result["blocked"][0]["reasons"])
+
+    def make_private(self):
+        lead = self.make_direct()
+        packet = lead["packet"]
+        packet["platform"] = PRIVATE_PLATFORM
+        scope = identity_scope(packet)
+        for record in (*packet["facts"].values(), *packet["permissions"].values(), lead["economics"]):
+            record["scope"] = scope
+        packet["permissions"]["deliver"] = {
+            **packet["permissions"]["submit"], "action": "deliver",
+        }
+        return lead
+
+    def test_private_direct_route_needs_no_social_publication(self):
+        lead = self.make_private()
+        packet = lead["packet"]
+        result = qualify(packet, NOW)
+        self.assertEqual(result["status"], "evidence_complete")
+        self.assertEqual(result["capabilities"]["deliver"], "automated")
+        for action in ("publish", "submit", "read_metrics"):
+            self.assertEqual(result["capabilities"][action], "disabled")
+        report = rank_campaigns([lead], now=NOW)
+        self.assertEqual(len(report["ranked"]), 1)
+        self.assertFalse(report["live_enabled"])
+        self.assertFalse(qualify(packet, NOW)["live_enabled"])
+
+    def test_private_route_requires_explicit_current_automated_delivery(self):
+        for changes in ({"mode": "manual"}, {"expires_at": NOW.isoformat()},
+                        {"scope": {"platform": "youtube"}}, {"action": "publish"}):
+            with self.subTest(changes=changes):
+                lead = self.make_private()
+                lead["packet"]["permissions"]["deliver"].update(changes)
+                self.assertFalse(rank_campaigns([lead], now=NOW)["ranked"])
+        lead = self.make_private()
+        del lead["packet"]["permissions"]["deliver"]
+        self.assertFalse(rank_campaigns([lead], now=NOW)["ranked"])
+
+    def test_private_route_cannot_qualify_as_marketplace(self):
+        lead = self.make_private()
+        packet = lead["packet"]
+        packet["marketplace"] = "content_rewards"
+        result = qualify(packet, NOW)
+        self.assertIn("private_delivery_requires_direct_agreement", result["blockers"])
+        self.assertFalse(rank_campaigns([lead], now=NOW, route="content_rewards")["ranked"])
 
     def test_blank_template_does_not_qualify(self):
         result = rank_campaigns([{"packet": direct_pilot_template("lead")}], now=NOW)
