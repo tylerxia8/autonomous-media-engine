@@ -76,7 +76,7 @@ class FinanceLedgerTest(unittest.TestCase):
         self.assertEqual(self.ledger.report(now=LAUNCH)["received_cash_cents"], 1_000)
 
     def test_first_week_and_initial_risk_use_confirmed_expense_and_open_holds(self):
-        self.authorize(monthly=6_000)
+        self.authorize(monthly=5_000)
         self.ledger.reserve("a", 3_000, now=LAUNCH)
         with self.assertRaisesRegex(FinanceError, "exceeds the reservation"):
             self.ledger.resolve("a", expense_cents=3_001, now=LAUNCH, evidence="invoice")
@@ -136,6 +136,38 @@ class FinanceLedgerTest(unittest.TestCase):
             self.ledger.reserve("new", 1, now=LAUNCH)
         self.authorize(monthly=30_000, reference="new-unlock")
         self.ledger.reserve("new", 1, now=LAUNCH)
+
+    def test_receipts_do_not_replenish_cumulative_authority(self):
+        self.authorize()
+        self.ledger.reserve("week-one", 3_000, now=LAUNCH)
+        self.ledger.resolve("week-one", expense_cents=3_000, now=LAUNCH, evidence="invoice-1")
+        self.ledger.record_event("receipt", "cash", 10_000, now=LAUNCH, evidence="bank-1")
+        later = LAUNCH + timedelta(days=35)
+        reopened = FinanceLedger(self.path, launch_at=LAUNCH)
+        reopened.reserve("later", 2_000, now=later)
+        with self.assertRaisesRegex(FinanceError, "cumulative spending cap"):
+            reopened.reserve("over", 1, now=later)
+
+    def test_intermediate_monthly_increase_requires_cash_and_owner_approval(self):
+        self.authorize()
+        for monthly in (5_001, 10_000, 29_999):
+            with self.subTest(monthly=monthly):
+                with self.assertRaisesRegex(FinanceError, "cash break-even"):
+                    self.authorize(monthly=monthly, reference=f"unlock-{monthly}")
+        self.ledger.reserve("unpaid", 200, now=LAUNCH)
+        self.ledger.resolve("unpaid", expense_cents=200, now=LAUNCH,
+                            evidence="invoice", paid=False)
+        self.ledger.record_event("receipt", "cash", 100, now=LAUNCH, evidence="bank")
+        self.assertFalse(self.ledger.report(now=LAUNCH)["verified_cash_break_even"])
+        with self.assertRaisesRegex(FinanceError, "cash break-even"):
+            self.authorize(monthly=10_000, reference="unlock")
+        self.ledger.record_event("more", "cash", 100, now=LAUNCH, evidence="bank-2")
+        self.authorize(monthly=10_000, reference="unlock")
+        self.ledger.record_event("refund", "reversal", 100, now=LAUNCH,
+                                 evidence="reversal", reverses="receipt")
+        self.assertTrue(self.ledger.report(now=LAUNCH)["paid_work_frozen"])
+        with self.assertRaisesRegex(FinanceError, "frozen"):
+            self.ledger.reserve("blocked", 1, now=LAUNCH)
 
     def test_rejects_limit_increases_above_hard_ceilings(self):
         for fields in (

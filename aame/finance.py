@@ -142,7 +142,7 @@ class FinanceLedger:
             "outstanding_cents": outstanding,
             "net_cash_cents": cash - paid,
             "capital_at_risk_cents": max(0, paid + outstanding - cash),
-            "verified_cash_break_even": cash > 0 and cash >= paid,
+            "verified_cash_break_even": cash > 0 and cash >= costs["incurred"],
         }
 
     @staticmethod
@@ -191,11 +191,11 @@ class FinanceLedger:
                     raise FinanceError("owner approval reference already used")
                 return
             totals = self._totals(connection)
-            if monthly_cents == MONTHLY_CEILING and (
+            if monthly_cents > INITIAL_CEILING and (
                 not totals["verified_cash_break_even"]
                 or totals["capital_at_risk_cents"] != 0
             ):
-                raise FinanceError("full monthly ceiling requires cleared cash break-even and coverage")
+                raise FinanceError("expanded monthly ceiling requires cleared cash break-even and coverage")
             connection.execute("""
                 INSERT INTO budget_approvals VALUES (?, ?, ?, ?, ?)
             """, (approval_ref, timestamp, *amounts))
@@ -223,10 +223,14 @@ class FinanceLedger:
             if cents:
                 if policy["frozen"]:
                     raise FinanceError("paid work frozen pending owner approval")
-                if not totals["verified_cash_break_even"]:
-                    risk = totals["capital_at_risk_cents"]
-                    if risk + cents > policy["initial_cents"]:
-                        raise FinanceError("initial risk limit exceeded")
+                # Owner authorization is a cumulative gross spending cap, not
+                # a replenishable net-risk allowance. Receipts never restore it.
+                if policy["monthly_cents"] <= INITIAL_CEILING:
+                    exposure = totals["expenses_cents"] + totals["reserved_cents"]
+                    if exposure + cents > policy["initial_cents"]:
+                        raise FinanceError("initial risk limit exceeded (cumulative spending cap)")
+                elif not totals["verified_cash_break_even"]:
+                    raise FinanceError("expanded spending requires cash break-even")
                 if timestamp < self.week_end:
                     week = self._week_exposure(connection, self.week_end)
                     if week + cents > policy["first_week_cents"]:
@@ -347,7 +351,7 @@ class FinanceLedger:
     def _handle_break_even_loss(self, connection, before):
         after = self._update_risk(connection)
         if before["verified_cash_break_even"] and not after["verified_cash_break_even"]:
-            if self._policy(connection)["monthly_cents"] == MONTHLY_CEILING:
+            if self._policy(connection)["monthly_cents"] > INITIAL_CEILING:
                 connection.execute("UPDATE budget SET frozen = 1 WHERE singleton = 1")
 
     def trailing_week(self, *, now):
