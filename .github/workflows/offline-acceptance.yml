@@ -1,0 +1,53 @@
+name: Offline acceptance
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout without persistent credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify local runtime and codecs
+        run: |
+          set -euo pipefail
+          python3 --version
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          ffmpeg -version
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep 'libx264'
+          ffmpeg -hide_banner -filters 2>/dev/null | grep ' subtitles '
+      - name: Run all fixture tests
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -B -m unittest discover -s tests -v
+      - name: Verify end-to-end synthetic workflow
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          python3 -B -m aame demo "$work/demo" > "$work/report.json"
+          python3 - "$work/report.json" "$work/demo/output/fixture.mp4" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          report = json.loads(Path(sys.argv[1]).read_text())
+          assert report["verified_cash_break_even"] is False, report
+          assert Path(sys.argv[2]).stat().st_size > 0
+          PY
