@@ -13,7 +13,7 @@ import tempfile
 
 from aame.video import (
     MAX_SOURCE_BYTES, MAX_TRANSCRIPT_BYTES, RECIPE_VERSION, SCORING_VERSION,
-    VideoError, _snapshot, _source_duration, _load_cues, plan_bundle,
+    VideoError, _snapshot, _source_duration, _load_cues, plan_bundle, _select_exact,
 )
 
 
@@ -52,9 +52,12 @@ def _open(database):
 def preflight(database, source_root, asset_relative_path, transcript_relative_path,
               *, order_ref, agreement_version, destination_ref,
               expected_source_sha256, expected_transcript_sha256,
-              count=3, amount_cents=7500, excluded_windows=()):
+              count=3, amount_cents=7500, excluded_windows=(), requested_windows=None):
     """Validate actual source and transcript before storing a fixed pilot plan.
 
+    Explicit requested windows must match the same validated cue boundaries,
+    duration and exclusion profile as automatic candidates. Their presence is
+    not proof that a customer approved them.
     No checkout or paid work is performed. Same order + same canonical plan is
     an idempotent replay; any change requires a new order ID. The local record
     is not proof of rights, editorial quality, payment, or delivery authority.
@@ -78,8 +81,18 @@ def preflight(database, source_root, asset_relative_path, transcript_relative_pa
         if duration > 30 * 60 * 1000:
             raise VideoError("pilot source exceeds 30 minutes")
         cues = _load_cues(transcript, duration)
-        candidates = plan_bundle(cues, count=count, minimum_ms=20000,
-                                 maximum_ms=35000, excluded_windows=excluded_windows)
+        if requested_windows is None:
+            candidates = plan_bundle(cues, count=count, minimum_ms=20000,
+                                     maximum_ms=35000, excluded_windows=excluded_windows)
+        else:
+            if not isinstance(requested_windows, (tuple, list)) or len(requested_windows) != count:
+                raise VideoError("requested windows must match contracted clip count")
+            candidates = []
+            for window in requested_windows:
+                candidate = _select_exact(cues, window, 20000, 35000, excluded_windows)
+                if candidates and candidate.start_ms < candidates[-1].end_ms:
+                    raise VideoError("requested windows must be ordered and nonoverlapping")
+                candidates.append(candidate)
         exclusions = sorted([list(w) for w in excluded_windows])
         plan = {
             "schema": 1, "order_ref": order_ref,
@@ -93,6 +106,8 @@ def preflight(database, source_root, asset_relative_path, transcript_relative_pa
             "excluded_windows": exclusions,
             "windows": [[c.start_ms, c.end_ms] for c in candidates],
         }
+        if requested_windows is not None:
+            plan["selection_mode"] = "explicit_requested_windows"
     payload = _canonical(plan)
     digest = _digest(payload)
     with closing(_open(database)) as connection:
