@@ -1,0 +1,187 @@
+# Disposable repository QA only; never merge or use this as a production worker.
+# Public standard runner, no checkout/token permissions, secrets, caches or uploaded artifacts.
+name: Bounded conversational render QA
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/conversational-bundle-qa.yml']
+    types: [opened]
+permissions: {}
+jobs:
+  conversation:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'qa/conversational-bundle-20261128'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: '1'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - name: Install isolated, version-pinned CPU benchmark dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/asr-qa"
+          source "$RUNNER_TEMP/asr-qa/bin/activate"
+          python -m pip --isolated --disable-pip-version-check --no-cache-dir install --index-url https://pypi.org/simple --only-binary=:all: --no-deps --retries 1 --timeout 30 \
+            faster-whisper==1.1.1 ctranslate2==4.5.0 av==14.0.1 \
+            huggingface-hub==0.27.1 tokenizers==0.21.0 onnxruntime==1.20.1 \
+            tqdm==4.67.1 numpy==1.26.4 pyarrow==18.1.0 \
+            setuptools==75.6.0 PyYAML==6.0.2 requests==2.32.3 \
+            certifi==2024.12.14 charset-normalizer==3.4.0 idna==3.10 urllib3==2.3.0 \
+            filelock==3.16.1 fsspec==2024.12.0 packaging==24.2 typing-extensions==4.12.2 \
+            coloredlogs==15.0.1 humanfriendly==10.0 flatbuffers==24.12.23 \
+            protobuf==5.29.3 sympy==1.13.3 mpmath==1.3.0
+          python -m pip check
+          python -m pip freeze
+      - name: Transcribe and render a licensed interview fixture locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/asr-qa/bin/activate"
+          python - <<'PY'
+          import hashlib, io, math, os, pathlib, re, tempfile, time, urllib.request
+          from huggingface_hub import HfApi
+          from faster_whisper import WhisperModel
+
+          # DTNS LABS Interview, Daily Tech News Show, CC BY 4.0 as declared on Commons.
+          # https://commons.wikimedia.org/wiki/File:DTNS_LABS_Interview_-_Richard_Kowalski,_Consumer_Electronics_Association.webm
+          # https://creativecommons.org/licenses/by/4.0/ -- conversion and cuts, internal QA only.
+          # MIT model: https://huggingface.co/Systran/faster-whisper-tiny
+          # Public aggregate metrics only; no audio, transcript or speaker IDs in logs.
+          repo = "Systran/faster-whisper-tiny"
+          revision = "518d6e0b5a068b278f66842b17377f9523de5cd1"
+          model_hash = "dcb76c6586fc06cbdac6dd21f14cfd129cc4cdd9dce19bf4ffa62e59cbe6e6d1"
+          def download(url, limit):
+              with urllib.request.urlopen(url, timeout=30) as res:
+                  b = res.read(limit + 1)
+              if not b or len(b) > limit:
+                  raise RuntimeError("Empty or oversized test asset")
+              return b
+          def sha256(b):
+              return hashlib.sha256(b).hexdigest()
+          def git_blob_id(b):
+              return hashlib.sha1(b"blob " + str(len(b)).encode() + b"\0" + b).hexdigest()
+          def words(s):
+              return re.findall(r"[a-z0-9]+(?:'[a-z0-9]+)?", s.lower().replace("’", "'"))
+          def distance(a, b):
+              prev = list(range(len(b) + 1))
+              for i, x in enumerate(a, 1):
+                  curr = [i]
+                  for j, y in enumerate(b, 1):
+                      curr.append(min(curr[-1] + 1, prev[j] + 1, prev[j-1] + (x != y)))
+                  prev = curr
+              return prev[-1]
+
+          with tempfile.TemporaryDirectory() as tmp:
+              folder = pathlib.Path(tmp)
+              metadata = {x.path: x for x in HfApi(token=False).list_repo_tree(repo, revision=revision)}
+              for name, limit in (("config.json", 100_000), ("tokenizer.json", 3_000_000),
+                                  ("vocabulary.txt", 1_000_000), ("model.bin", 80_000_000)):
+                  content = download(f"https://huggingface.co/{repo}/resolve/{revision}/{name}", limit)
+                  if name == "model.bin":
+                      if sha256(content) != model_hash:
+                          raise RuntimeError("Model SHA256 mismatch")
+                  elif git_blob_id(content) != metadata[name].blob_id:
+                      raise RuntimeError("Pinned model file Git blob mismatch")
+                  (folder / name).write_bytes(content)
+                  print(f"Verified {name}: sha256={sha256(content)}", flush=True)
+              os.environ["HF_HUB_OFFLINE"] = "1"
+              model = WhisperModel(str(folder), device="cpu", compute_type="int8",
+                                   cpu_threads=2, local_files_only=True)
+                  import importlib.util, json, subprocess, sys, unicodedata
+              # Use the exact reviewed candidate implementation, not mutable branch code.
+              code = download("https://raw.githubusercontent.com/tylerxia8/autonomous-media-engine/ece0f3cfb203ccffeda535c06e3c9075fd665848/aame/video.py", 100_000)
+              if git_blob_id(code) != "9de0738390ec8628de4d5d25088189f46b06c888":
+                  raise RuntimeError("Candidate renderer integrity mismatch")
+              (folder / "video.py").write_bytes(code)
+              spec = importlib.util.spec_from_file_location("candidate_video", folder / "video.py")
+              video = importlib.util.module_from_spec(spec)
+              sys.modules[spec.name] = video
+              spec.loader.exec_module(video)
+              # Exact Commons original, fixed byte size and recorded SHA-1; no sharing.
+              url = "https://upload.wikimedia.org/wikipedia/commons/c/c1/DTNS_LABS_Interview_-_Richard_Kowalski%2C_Consumer_Electronics_Association.webm"
+              req = urllib.request.Request(url, headers={"User-Agent": "AAME-Internal-Media-QA/1.0 (public repository tylerxia8/autonomous-media-engine)"})
+              with urllib.request.urlopen(req, timeout=45) as res:
+                  media = res.read(47_000_001)
+              if len(media) != 46919488 or hashlib.sha1(media).hexdigest() != "fa1190da8cda7fe9ede5212120f2219e696cc00d":
+                  raise RuntimeError("Interview asset integrity mismatch")
+              original = folder / "source.webm"
+              original.write_bytes(media)
+              source = folder / "source.mp4"
+              start = time.monotonic()
+              # Normalize only a bounded three-minute segment; no public output.
+              subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-protocol_whitelist", "file",
+                  "-threads", "2", "-i", str(original), "-ss", "60", "-t", "180",
+                  "-map", "0:v:0", "-map", "0:a:0", "-map_metadata", "-1", "-map_chapters", "-1",
+                  "-vf", "scale=640:-2", "-threads", "2", "-c:v", "libx264", "-preset", "veryfast",
+                  "-pix_fmt", "yuv420p", "-c:a", "aac", str(source)], check=True, timeout=100)
+              normalized = time.monotonic()
+              duration = video._source_duration(source)
+              segs, info = model.transcribe(str(source), language="en", beam_size=5,
+                  word_timestamps=True, condition_on_previous_text=False, vad_filter=False)
+              # Short, bounded cues from timed words. Reject invalid or substantially overlapping
+              # timestamps rather than silently fabricating speech timings.
+              rows, pending = [], []
+              invalid = clipped = 0
+              previous = 0
+              def flush():
+                  if pending:
+                      rows.append({"start_ms": pending[0][0], "end_ms": pending[-1][1],
+                                   "text": " ".join(x[2] for x in pending)})
+                      pending.clear()
+              for seg in segs:
+                  for word in seg.words or []:
+                      text = word.word.strip()
+                      if not text or not math.isfinite(word.start) or not math.isfinite(word.end):
+                          invalid += 1
+                          continue
+                      a, b = round(word.start*1000), round(word.end*1000)
+                      if a < previous - 50 or b > duration + 250 or b <= a or a < 0:
+                          invalid += 1
+                          continue
+                      aa, bb = max(previous, a), min(duration, b)
+                      if bb <= aa:
+                          invalid += 1
+                          continue
+                      if aa != a or bb != b:
+                          clipped += 1
+                      if pending and (aa - pending[-1][1] > 700 or bb-pending[0][0] > 3500
+                              or len(" ".join(x[2] for x in pending))+1+len(text) > 80):
+                          flush()
+                      pending.append((aa, bb, text))
+                      previous = bb
+                      if text.endswith((".", "!", "?")):
+                          flush()
+              flush()
+              asr_end = time.monotonic()
+              print(f"CONVERSATION_TRANSCRIPT cues={len(rows)} invalid_words={invalid} adjusted_boundary_words={clipped} normalization_seconds={normalized-start:.2f} asr_and_cues_seconds={asr_end-normalized:.2f}", flush=True)
+              if invalid or len(rows) < 20:
+                  raise RuntimeError("Conversational timestamp or cue quality screen failed")
+              transcript = folder / "transcript.json"
+              transcript.write_text(json.dumps(rows), encoding="utf-8")
+              cues = video._load_cues(transcript, duration)
+              plan = video.plan_bundle(cues, count=3, minimum_ms=20000, maximum_ms=35000)
+              windows, output_hashes, sizes = [], [], []
+              for i, cut in enumerate(plan):
+                  output = folder / f"fixture-{i}.mp4"
+                  window = (cut.start_ms, cut.end_ms)
+                  t = time.monotonic()
+                  receipt = video.produce(folder, source.name, transcript.name, output,
+                      expected_source_sha256=sha256(source.read_bytes()),
+                      expected_transcript_sha256=sha256(transcript.read_bytes()),
+                      minimum_ms=20000, maximum_ms=35000, selected_window=window,
+                      excluded_windows=windows)
+                  if not video.verify_render(output, receipt) or receipt.output_sha256 != sha256(output.read_bytes()):
+                      raise RuntimeError("Clip technical acceptance failed")
+                  if (receipt.start_ms, receipt.end_ms) != window or any(window[0] < b and a < window[1] for a,b in windows):
+                      raise RuntimeError("Plan mismatch")
+                  windows.append(window)
+                  output_hashes.append(receipt.output_sha256)
+                  sizes.append(output.stat().st_size)
+                  print(f"FIXTURE_CLIP index={i} duration_ms={cut.end_ms-cut.start_ms} bytes={sizes[-1]} render_and_qa_seconds={time.monotonic()-t:.2f}", flush=True)
+              if len(set(output_hashes)) != 3:
+                  raise RuntimeError("Duplicate output")
+              print(f"CONVERSATION_TECHNICAL_QA PASS clips=3 bytes={sum(sizes)} pipeline_seconds={time.monotonic()-start:.2f} editorial_qa=UNVERIFIED reference_wer=UNAVAILABLE delivery=NOT_TESTED monetizable=false", flush=True)
+          PY
