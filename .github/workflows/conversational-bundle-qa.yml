@@ -132,11 +132,12 @@ jobs:
               normalized = time.monotonic()
               duration = video._source_duration(source)
               segs, info = model.transcribe(str(source), language="en", beam_size=5,
-                  word_timestamps=True, condition_on_previous_text=False, vad_filter=False)
+                  word_timestamps=True, condition_on_previous_text=False, vad_filter=True)
               # Short, bounded cues from timed words. Reject invalid or substantially overlapping
               # timestamps rather than silently fabricating speech timings.
               rows, pending = [], []
               invalid = clipped = 0
+              reasons = {"empty_or_nonfinite": 0, "overlap": 0, "out_of_bounds": 0, "nonpositive": 0, "collapsed": 0}
               previous = 0
               def flush():
                   if pending:
@@ -147,14 +148,19 @@ jobs:
                   for word in seg.words or []:
                       text = word.word.strip()
                       if not text or not math.isfinite(word.start) or not math.isfinite(word.end):
+                          reasons["empty_or_nonfinite"] += 1
                           invalid += 1
                           continue
                       a, b = round(word.start*1000), round(word.end*1000)
                       if a < previous - 50 or b > duration + 250 or b <= a or a < 0:
+                          reasons["overlap"] += int(a < previous - 50)
+                          reasons["out_of_bounds"] += int(b > duration + 250 or a < 0)
+                          reasons["nonpositive"] += int(b <= a)
                           invalid += 1
                           continue
                       aa, bb = max(previous, a), min(duration, b)
                       if bb <= aa:
+                          reasons["collapsed"] += 1
                           invalid += 1
                           continue
                       if aa != a or bb != b:
@@ -169,6 +175,7 @@ jobs:
               flush()
               asr_end = time.monotonic()
               print(f"CONVERSATION_TRANSCRIPT cues={len(rows)} invalid_words={invalid} adjusted_boundary_words={clipped} normalization_seconds={normalized-start:.2f} asr_and_cues_seconds={asr_end-normalized:.2f}", flush=True)
+              print(f"TIMESTAMP_DIAGNOSTICS vad=true reason_counts={json.dumps(reasons, sort_keys=True)}", flush=True)
               if invalid or len(rows) < 20:
                   raise RuntimeError("Conversational timestamp or cue quality screen failed")
               transcript = folder / "transcript.json"
