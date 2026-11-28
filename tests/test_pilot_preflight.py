@@ -87,6 +87,38 @@ class PilotPreflightTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             load_plan(self.database, "fixture-order")
 
+    def test_requested_window_persists_exact_nonwinning_cut(self):
+        result = self.plan(count=1, amount_cents=2500, requested_windows=[[10000, 40000]])
+        self.assertEqual(result["plan"]["windows"], [[10000, 40000]])
+        self.assertEqual(result["plan"]["selection_mode"], "explicit_requested_windows")
+        self.assertFalse(result["checkout_authorized"])
+        self.assertEqual(self.plan(count=1, amount_cents=2500,
+                                   requested_windows=[(10000, 40000)]), result)
+        self.assertEqual(load_plan(self.database, "fixture-order"), result)
+        with self.assertRaises(ValueError):
+            self.plan(count=1, amount_cents=2500, requested_windows=[[0, 20000]])
+        with self.assertRaises(ValueError):
+            self.plan(count=1, amount_cents=2500)
+
+    def test_requested_windows_fail_closed(self):
+        for windows in ([], [[0, 20000]], [[0, 30000], [20000, 40000], [40000, 60000]],
+                        [[20000, 40000], [0, 20000], [40000, 60000]],
+                        [[1, 20000], [20000, 40000], [40000, 60000]],
+                        [[0, 20000], [20000, 40000], [40000, 70000]],
+                        [[0, 20000], [20000, 40000], [40000, True]]):
+            with self.subTest(windows=windows), self.assertRaises(VideoError):
+                self.plan(requested_windows=windows)
+        with self.assertRaises(VideoError):
+            self.plan(requested_windows=[[0, 20000], [20000, 40000], [40000, 60000]],
+                      excluded_windows=[(1000, 2000)])
+        with self.assertRaises(ValueError):
+            load_plan(self.database, "fixture-order")
+
+    def test_requested_three_touching_windows(self):
+        result = self.plan(requested_windows=[[0, 20000], [20000, 40000], [40000, 60000]])
+        self.assertEqual(result["plan"]["windows"], [[0, 20000], [20000, 40000], [40000, 60000]])
+        self.assertFalse(result["cash_verified"])
+
     def test_corruption_detected(self):
         self.plan()
         with sqlite3.connect(self.database) as connection:
