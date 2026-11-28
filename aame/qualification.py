@@ -14,6 +14,8 @@ DIRECT_REFERENCES = (
     "payer_ref", "authorized_feed_ref", "automated_delivery_ref", "settlement_feed_ref",
 )
 DIRECT_AUTOMATED = ("acquire", "edit", "publish", "submit", "reconcile")
+PRIVATE_PLATFORM = "private_delivery"
+PRIVATE_AUTOMATED = ("acquire", "edit", "deliver", "reconcile")
 
 
 def nonblank(value):
@@ -78,14 +80,14 @@ def content_rewards_template(campaign_id):
 
 
 def direct_pilot_template(campaign_id):
-    return _campaign_template(campaign_id, "direct")
+    return _campaign_template(campaign_id, "direct", platform=PRIVATE_PLATFORM)
 
 
-def _campaign_template(campaign_id, marketplace):
+def _campaign_template(campaign_id, marketplace, *, platform="youtube"):
     if not nonblank(campaign_id):
         raise ValueError("campaign ID is required")
     identity = {
-        "campaign_id": campaign_id, "version": None, "platform": "youtube",
+        "campaign_id": campaign_id, "version": None, "platform": platform,
         "account_id": None, "asset_id": None, "marketplace": marketplace,
     }
     payment = {
@@ -118,7 +120,7 @@ def _campaign_template(campaign_id, marketplace):
                 **missing_evidence(), "action": action,
                 "mode": "manual" if action == "submit" and marketplace == "content_rewards" else None,
             }
-            for action in ACTIONS
+            for action in ((*ACTIONS, "deliver") if platform == PRIVATE_PLATFORM else ACTIONS)
         },
     }
 
@@ -142,6 +144,9 @@ def qualify(packet, now):
         blockers.append("incomplete_identity")
     if "marketplace" in packet and packet["marketplace"] not in ("content_rewards", "direct"):
         blockers.append("unsupported_marketplace")
+    private = packet.get("platform") == PRIVATE_PLATFORM
+    if private and packet.get("marketplace") != "direct":
+        blockers.append("private_delivery_requires_direct_agreement")
     for name in FACTS:
         record = facts.get(name)
         if not current_evidence(record, now) or record.get("scope") != identity:
@@ -170,11 +175,13 @@ def qualify(packet, now):
 
     evidence_complete = not blockers
     capabilities = {}
-    for action in ACTIONS:
+    actions = (*ACTIONS, "deliver") if private else ACTIONS
+    for action in actions:
         record = permissions.get(action)
         capabilities[action] = "disabled"
         if (
             evidence_complete
+            and (not private or action in ("discover", *PRIVATE_AUTOMATED))
             and current_evidence(record, now)
             and record.get("scope") == identity
             and record.get("action") == action
@@ -186,12 +193,15 @@ def qualify(packet, now):
         ):
             capabilities[action] = record["mode"]
 
-    for action in ("discover", "acquire", "edit", "publish", "submit", "reconcile"):
+    required = ("discover", *PRIVATE_AUTOMATED) if private else (
+        "discover", "acquire", "edit", "publish", "submit", "reconcile"
+    )
+    for action in required:
         if capabilities[action] == "disabled":
             blockers.append(f"permission:{action}")
 
     if evidence_complete and packet.get("marketplace") == "direct":
-        for action in DIRECT_AUTOMATED:
+        for action in (PRIVATE_AUTOMATED if private else DIRECT_AUTOMATED):
             if capabilities[action] != "automated":
                 capabilities[action] = "disabled"
                 blockers.append(f"direct_requires_automation:{action}")

@@ -98,6 +98,22 @@ def authorize(client_file, output):
 
 def advance(args, *, clock=None, token_factory=refresh_access_token,
             transport_factory=YouTubeTransport, dispatcher_factory=UploadDispatcher):
+    """Public entry point: validate locally; no live dispatch until integration."""
+    if args.execute:
+        raise ValueError("live publication disabled: durable authorization integration required")
+    return _advance_candidate(
+        args, clock=clock, token_factory=token_factory,
+        transport_factory=transport_factory, dispatcher_factory=dispatcher_factory,
+    )
+
+
+def _advance_candidate(args, *, clock=None, token_factory=refresh_access_token,
+                       transport_factory=YouTubeTransport, dispatcher_factory=UploadDispatcher):
+    """Unreleased transport candidate retained for offline contract testing.
+
+    Not a production entry point. Requires a trusted durable job resolver,
+    independent QA, rights, quota, budget and global stop checks before release.
+    """
     clock = clock or (lambda: datetime.now(timezone.utc))
     approval_bytes = read_file(args.approval, limit=65536, private=True)
     approval = json.loads(approval_bytes)

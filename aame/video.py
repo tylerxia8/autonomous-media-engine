@@ -190,46 +190,67 @@ class ClipCandidate:
     version: str = SCORING_VERSION
 
 
-def rank_candidates(cues, *, limit=1, minimum_ms=1_000, maximum_ms=MAX_CLIP_MS):
-    """Rank bounded contiguous cue windows with reproducible explanations."""
-    if type(limit) is not int or not 1 <= limit <= 20:
-        raise VideoError("candidate limit must be between 1 and 20")
+def _validate_profile(minimum_ms, maximum_ms, excluded_windows):
+    # Half-open source time intervals from prior cuts of the same authorized asset.
+    # Limit the list to the maximum contracted bundle size.
+    if not isinstance(excluded_windows, (tuple, list)) or len(excluded_windows) > 100:
+        raise VideoError("invalid excluded windows")
+    ranges = []
+    for item in excluded_windows:
+        if (not isinstance(item, (tuple, list)) or len(item) != 2
+                or any(type(t) is not int for t in item)
+                or not 0 <= item[0] < item[1] <= MAX_SOURCE_MS):
+            raise VideoError("invalid excluded window")
+        ranges.append(tuple(item))
     if (
         type(minimum_ms) is not int or type(maximum_ms) is not int
         or not 1_000 <= minimum_ms <= maximum_ms <= MAX_CLIP_MS
     ):
         raise VideoError("invalid clip duration profile")
+    return ranges
 
-    def windows():
-        for first, beginning in enumerate(cues):
-            words = speech = 0
-            for last in range(first, min(first + 80, len(cues))):
-                cue = cues[last]
-                if last > first and cue.start_ms - cues[last - 1].end_ms > 2_500:
-                    break
-                duration = cue.end_ms - beginning.start_ms
-                if duration > maximum_ms:
-                    break
-                words += len(cue.text.split())
-                speech += cue.end_ms - cue.start_ms
-                if duration < minimum_ms:
-                    continue
-                band_distance = max(12_000 - duration, duration - 25_000, 0)
-                dead_air = duration - speech
-                reasons = ["caption_speech"]
-                if band_distance:
-                    reasons.append("outside_preferred_length")
-                else:
-                    reasons.append("preferred_length")
-                if dead_air >= 500:
-                    reasons.append("silence_penalty")
-                score = min(words, 55) * 100 - band_distance // 10 - dead_air // 20
-                yield ClipCandidate(
-                    first, last, beginning.start_ms, cue.end_ms, score, tuple(reasons),
-                )
 
+def _windows_from(cues, first, minimum_ms, maximum_ms, ranges):
+    beginning = cues[first]
+    words = speech = 0
+    for last in range(first, min(first + 80, len(cues))):
+        cue = cues[last]
+        if last > first and cue.start_ms - cues[last - 1].end_ms > 2_500:
+            break
+        if any(beginning.start_ms < end and start < cue.end_ms
+               for start, end in ranges):
+            break  # Extending this window cannot remove its overlap.
+        duration = cue.end_ms - beginning.start_ms
+        if duration > maximum_ms:
+            break
+        words += len(cue.text.split())
+        speech += cue.end_ms - cue.start_ms
+        if duration < minimum_ms:
+            continue
+        band_distance = max(12_000 - duration, duration - 25_000, 0)
+        dead_air = duration - speech
+        reasons = ["caption_speech"]
+        if band_distance:
+            reasons.append("outside_preferred_length")
+        else:
+            reasons.append("preferred_length")
+        if dead_air >= 500:
+            reasons.append("silence_penalty")
+        score = min(words, 55) * 100 - band_distance // 10 - dead_air // 20
+        yield ClipCandidate(
+            first, last, beginning.start_ms, cue.end_ms, score, tuple(reasons),
+        )
+
+
+def rank_candidates(cues, *, limit=1, minimum_ms=1_000, maximum_ms=MAX_CLIP_MS,
+                    excluded_windows=()):
+    if type(limit) is not int or not 1 <= limit <= 20:
+        raise VideoError("candidate limit must be between 1 and 20")
+    ranges = _validate_profile(minimum_ms, maximum_ms, excluded_windows)
     candidates = heapq.nlargest(
-        limit, windows(),
+        limit,
+        (candidate for first in range(len(cues))
+         for candidate in _windows_from(cues, first, minimum_ms, maximum_ms, ranges)),
         key=lambda candidate: (
             candidate.score, -candidate.start_ms, -(candidate.end_ms - candidate.start_ms),
         ),
@@ -237,6 +258,75 @@ def rank_candidates(cues, *, limit=1, minimum_ms=1_000, maximum_ms=MAX_CLIP_MS):
     if not candidates:
         raise VideoError("no usable clip candidate fits the duration profile")
     return candidates
+
+
+def plan_bundle(cues, *, count=3, minimum_ms=20_000, maximum_ms=MAX_CLIP_MS,
+                excluded_windows=()):
+    """Plan exactly count disjoint windows or fail before any rendering.
+
+    Input must be ordered, validated transcript cues. Optimize total existing
+    candidate score, breaking ties by earliest start then shortest first cut.
+    Suffix DP considers every eligible bounded candidate, not a top-N shortlist.
+    This is an offline plan, not payment authorization or durable order state.
+    """
+    ranges = _validate_profile(minimum_ms, maximum_ms, excluded_windows)
+    if type(count) is not int or not 1 <= count <= 10:
+        raise VideoError("bundle count must be between 1 and 10")
+    if not 1 <= len(cues) <= 10_000:
+        raise VideoError("invalid bundle transcript length")
+    previous_end = 0
+    for cue in cues:
+        if (not isinstance(cue, Cue) or type(cue.start_ms) is not int
+                or type(cue.end_ms) is not int
+                or not previous_end <= cue.start_ms < cue.end_ms <= MAX_SOURCE_MS
+                or cue.end_ms - cue.start_ms > MAX_CLIP_MS):
+            raise VideoError("bundle cues must be ordered and nonoverlapping")
+        _cue_text(cue.text)
+        previous_end = cue.end_ms
+    n = len(cues)
+    # None is infeasible, including when every feasible score is negative.
+    scores = [[0] + [None] * count for _ in range(n + 1)]
+    choices = [[None] * (count + 1) for _ in range(n)]
+    for first in range(n - 1, -1, -1):
+        scores[first] = scores[first + 1].copy()
+        for candidate in _windows_from(cues, first, minimum_ms, maximum_ms, ranges):
+            suffix = scores[candidate.last_cue + 1]
+            for k in range(1, count + 1):
+                if suffix[k - 1] is None:
+                    continue
+                total = candidate.score + suffix[k - 1]
+                best = scores[first][k]
+                if (best is None or total > best
+                        or (total == best and choices[first][k] is None)):
+                    scores[first][k] = total
+                    choices[first][k] = candidate
+    if scores[0][count] is None:
+        raise VideoError("no complete nonoverlapping bundle fits the duration profile")
+    result = []
+    first, k = 0, count
+    while k:
+        candidate = choices[first][k]
+        if candidate is None:
+            first += 1
+            continue
+        result.append(candidate)
+        first, k = candidate.last_cue + 1, k - 1
+    return tuple(result)
+
+
+def _select_exact(cues, selected_window, minimum_ms, maximum_ms, excluded_windows):
+    ranges = _validate_profile(minimum_ms, maximum_ms, excluded_windows)
+    if (not isinstance(selected_window, (tuple, list)) or len(selected_window) != 2
+            or any(type(t) is not int for t in selected_window)
+            or not 0 <= selected_window[0] < selected_window[1] <= MAX_SOURCE_MS):
+        raise VideoError("invalid planned window")
+    for first, cue in enumerate(cues):
+        if cue.start_ms == selected_window[0]:
+            for candidate in _windows_from(cues, first, minimum_ms, maximum_ms, ranges):
+                if candidate.end_ms == selected_window[1]:
+                    return candidate
+            break
+    raise VideoError("planned window does not fit the authorized transcript/profile")
 
 
 def _srt_time(milliseconds):
@@ -327,6 +417,8 @@ def produce(
     expected_transcript_sha256: str,
     minimum_ms: int = 1_000,
     maximum_ms: int = MAX_CLIP_MS,
+    excluded_windows=(),
+    selected_window=None,
 ) -> RenderReceipt:
     """Render a clip atomically. Both authorized digests are mandatory."""
     output = Path(output)
@@ -341,7 +433,12 @@ def produce(
             _snapshot(source_root, transcript_relative_path, transcript, expected_transcript_sha256,
                       MAX_TRANSCRIPT_BYTES)
             all_cues = _load_cues(transcript, _source_duration(source))
-            winner = rank_candidates(all_cues, minimum_ms=minimum_ms, maximum_ms=maximum_ms)[0]
+            if selected_window is None:
+                winner = rank_candidates(all_cues, minimum_ms=minimum_ms, maximum_ms=maximum_ms,
+                                         excluded_windows=excluded_windows)[0]
+            else:
+                winner = _select_exact(all_cues, selected_window, minimum_ms, maximum_ms,
+                                       excluded_windows)
             cues = all_cues[winner.first_cue:winner.last_cue + 1]
             _render(directory, cues)
             clip = directory / "clip.mp4"
